@@ -13,6 +13,7 @@
 class Lexer {
 private:
     FILE* m_File;
+    bool m_IsJIT;
     std::string m_Identifier;
     std::string m_ValueStr;
     int m_CurrentChar = ' ';
