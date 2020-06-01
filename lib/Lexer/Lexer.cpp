@@ -4,16 +4,27 @@
 
 #include "Lexer/Lexer.hpp"
 #include "utils/token.h"
+#include <cstdio>
+#include <cstring>
+#include <iostream>
 
 Lexer::Lexer(const char *path) {
-    m_File = std::fopen(path, "r");
+    m_IsJIT = strlen(path) == 0;
 
-    if (!m_File) {
+    std::cout << strlen(path) << std::endl;
+
+    std::cout << (m_IsJIT ? "A JIT Compiler" : "Not a JIT Compiler") << std::endl;
+
+    m_File = m_IsJIT ? std::fopen(path, "r") : nullptr;
+
+    if (!m_File && !m_IsJIT) {
         std::string str("Failed to open file: ");
         str += path;
         std::perror(str.c_str());
-    } else {
+    } else if (!m_IsJIT) {
         std::cout << "File opened successfully" << std::endl;
+    } else {
+        std::cout << "YAPL >>>";
     }
 }
 
@@ -22,7 +33,9 @@ Lexer::~Lexer() {
 }
 
 int Lexer::getChar() {
-    m_CurrentChar = std::fgetc(m_File);
+    m_CurrentChar = m_IsJIT ?
+        getchar() :
+        std::fgetc(m_File);
     m_CharCount++;
     if (m_CurrentChar == '\n')
         m_LineCount++;
