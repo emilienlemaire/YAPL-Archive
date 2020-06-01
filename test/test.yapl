@@ -1,0 +1,9 @@
+float b;
+
+int func(int a, float b);
+
+float func(int a, float b) {
+    return 1 + 2. + a + b;
+}
+
+func(12, 42.0);
