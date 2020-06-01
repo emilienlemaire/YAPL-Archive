@@ -23,7 +23,7 @@ class IRGenerator {
 private:
     llvm::LLVMContext m_Context;
     std::unique_ptr<llvm::IRBuilder<>> m_Builder;
-    std::shared_ptr<llvm::Module> m_Module;
+    std::unique_ptr<llvm::Module> m_Module;
     std::unique_ptr<PassManager> m_PassManager;
     std::shared_ptr<Lexer> m_Lexer;
     Parser m_Parser;
@@ -43,7 +43,9 @@ public:
     llvm::Function *generatePrototype(std::shared_ptr<PrototypeAST> parsedPrototype);
     llvm::Function *generateFunctionDefinition(std::shared_ptr<FunctionDefinitionAST> parsedFunctionDefinition);
 
-    inline std::shared_ptr<llvm::Module> getModule() { return m_Module; }
+    std::unique_ptr<llvm::Module> getModule() { return std::move(m_Module); }
+
+    void reloadModuleAndPassManger();
 };
 
 

@@ -11,9 +11,9 @@
 
 class PassManager {
 private:
-    std::shared_ptr<llvm::Module> m_Module;
+    std::unique_ptr<llvm::Module> m_Module;
     std::unique_ptr<llvm::legacy::FunctionPassManager> m_FunctionPassManager;
 public:
-    PassManager(std::shared_ptr<llvm::Module> module);
+    PassManager(llvm::Module* module);
     void run(llvm::Function &function);
 };

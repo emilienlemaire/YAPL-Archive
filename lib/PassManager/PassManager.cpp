@@ -2,10 +2,9 @@
 
 #include "PassManager/PassManager.hpp"
 
-PassManager::PassManager(std::shared_ptr<llvm::Module> module)
-    : m_Module(module)
+PassManager::PassManager(llvm::Module* module)
 {
-    m_FunctionPassManager = std::make_unique<llvm::legacy::FunctionPassManager>(m_Module.get());
+    m_FunctionPassManager = std::make_unique<llvm::legacy::FunctionPassManager>(module);
 
     m_FunctionPassManager->add(llvm::createInstructionCombiningPass());
     m_FunctionPassManager->add(llvm::createReassociatePass());

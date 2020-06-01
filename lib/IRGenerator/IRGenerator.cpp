@@ -18,9 +18,9 @@
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
 {
-    m_Module = std::make_shared<llvm::Module>("test", m_Context);
+    m_Module = std::make_unique<llvm::Module>("test", m_Context);
     m_Builder = std::make_unique<llvm::IRBuilder<>>(m_Context);
-    m_PassManager = std::make_unique<PassManager>(m_Module);
+    m_PassManager = std::make_unique<PassManager>(m_Module.get());
 }
 
 void IRGenerator::generate() {
@@ -234,3 +234,9 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
 
     return function;
 }
+
+void IRGenerator::reloadModuleAndPassManger() {
+    m_Module = std::make_unique<llvm::Module>("JIT", m_Context);
+    m_PassManager = std::make_unique<PassManager>(m_Module.get());
+}
+
