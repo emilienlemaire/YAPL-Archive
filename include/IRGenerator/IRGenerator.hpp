@@ -14,14 +14,17 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
+#include <memory>
 
 #include "Parser/Parser.hpp"
+#include "PassManager/PassManager.hpp"
 
 class IRGenerator {
 private:
     llvm::LLVMContext m_Context;
     std::unique_ptr<llvm::IRBuilder<>> m_Builder;
-    std::unique_ptr<llvm::Module> m_Module;
+    std::shared_ptr<llvm::Module> m_Module;
+    std::unique_ptr<PassManager> m_PassManager;
     std::shared_ptr<Lexer> m_Lexer;
     Parser m_Parser;
     std::map<std::string, llvm::Value *> m_NamedValues;
@@ -39,6 +42,8 @@ public:
     llvm::Function *generateDeclaration(std::shared_ptr<DeclarationAST> parsedDeclaration);
     llvm::Function *generatePrototype(std::shared_ptr<PrototypeAST> parsedPrototype);
     llvm::Function *generateFunctionDefinition(std::shared_ptr<FunctionDefinitionAST> parsedFunctionDefinition);
+
+    inline std::shared_ptr<llvm::Module> getModule() { return m_Module; }
 };
 
 

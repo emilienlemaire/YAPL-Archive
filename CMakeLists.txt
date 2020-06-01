@@ -8,7 +8,7 @@ set(CMAKE_CXX_COMPILER "/usr/local/bin/clang++")
 project(yapl)
 
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 list(APPEND CMAKE_PREFIX_PATH "/usr/local/Cellar/llvm/10.0.0_3/lib/cmake")
@@ -24,7 +24,7 @@ add_executable(
         main.cpp)
 
 
-llvm_map_components_to_libnames(llvm_libs core)
+llvm_map_components_to_libnames(llvm_libs core mcjit native)
 
 add_subdirectory(lib)
 

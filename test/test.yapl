@@ -2,8 +2,8 @@ float b;
 
 int func(int a, float b);
 
-float func(int a, float b) {
-    return 1 + 2. + a + b;
+int func(int x) {
+    return (1+2+x) * (x+(1+2));
 }
 
-func(12, 42.0);
+func(5);

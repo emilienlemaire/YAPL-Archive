@@ -4,7 +4,7 @@ add_library(irgenerator STATIC
         IRGenerator.cpp)
 
 target_link_libraries(irgenerator PRIVATE
-        parser)
+        parser passmanager)
 
 target_link_libraries(irgenerator PUBLIC
         ${llvm_libs})
