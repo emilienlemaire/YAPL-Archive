@@ -2,6 +2,7 @@
 // Created by Emilien Lemaire on 21/04/2020.
 //
 
+#include <iostream>
 #include <memory>
 #include <helper/helper.hpp>
 #include <utils/token.h>
@@ -20,12 +21,19 @@ void Parser::parse() {
         switch (m_CurrentToken) {
             case tok_type:
                 parseDeclaration();
+                std::cout << "yapl >>>";
                 break;
             case tok_include:
                 parseInclude();
+                std::cout << "yapl >>>";
+                break;
+            case tok_sc:
+                m_CurrentToken = m_Lexer->getToken();
+                std::cout << "yapl >>>";
                 break;
             default:
                 parseTopLevelExpr();
+                std::cout << "tok_sc" << std::endl;
                 break;
         }
     }
@@ -57,20 +65,50 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
 
     dName = m_Lexer->getIdentifier();
 
+#ifdef VERBOSE_PARSING
+    std::cout << "Parsing declaration with type: " << dType <<
+        " and name: " << dName << std::endl;
+#endif
+
     m_CurrentToken = m_Lexer->getToken();
 
     if (m_CurrentToken == tok_popen) {
+
+#ifdef VERBOSE_PARSING
+    std::cout << "Parsing prototype." << std::endl;
+#endif
+
         auto declaration = std::make_shared<DeclarationAST>(dType, dName);
         auto proto = parsePrototype(std::move(declaration));
+
+#ifdef VERBOSE_PARSING
+        auto args = proto->getParams();
+        std::cout << "Parsed prototype with arguments:";
+
+        for (const auto arg : args) {
+            std::cout << " " << arg->getType() << " " << arg->getName() << ";";
+        }
+
+        std::cout << std::endl;
+
+        std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+#endif
+
+        if (m_CurrentToken == tok_sc) {
+            return proto;
+        }
 
         if (m_CurrentToken == tok_bopen) {
             return parseDefinition(proto);
         }
 
         if (m_CurrentToken != tok_sc) {
-            std::cerr << "Expected ';' at the end of a declaration!" << std::endl;
+            std::cerr << "Expected function body or ';' after prototype" << std::endl;
+            m_CurrentToken = m_Lexer->getToken();
             return nullptr;
         }
+
+        return proto;
     }
 
     if (m_CurrentToken == tok_eq) {
@@ -96,10 +134,24 @@ void Parser::parseInclude() {
 std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<DeclarationAST> declarationAST) {
     std::vector<std::shared_ptr<DeclarationAST>> args;
 
+#ifdef VERBOSE_PARSING
+    std::cout << "Starting prototype parsing" << std::endl;
+    std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+#endif
+
     m_CurrentToken = m_Lexer->getToken();
+
+#ifdef VERBOSE_PARSING
+    std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+#endif
 
     if (m_CurrentToken != tok_type) {
         if (m_CurrentToken == tok_pclose) {
+
+#ifdef VERBOSE_PARSING
+            std::cout << "Found proto without args" << std::endl;
+#endif
+
             std::cout << "Found prototype: " << declarationAST->getType() << " " << declarationAST->getName() << std::endl;
             return std::make_shared<PrototypeAST>(std::move(declarationAST), std::move(args));
         } else {
@@ -161,6 +213,11 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
     m_CurrentToken = m_Lexer->getToken();
 
     auto proto = std::make_shared<PrototypeAST>(declarationAST, args);
+
+#ifdef VERBOSE_PARSING
+    std::cout << "Reached end of prototype parsing" << std::endl;
+#endif
+
 
     return std::move(proto);
 }
@@ -312,8 +369,6 @@ std::shared_ptr<ExprAST> Parser::parseExpression() {
 
 std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
     switch (m_CurrentToken) {
-        default:
-            std::cerr << "Unexpected token instead of expression : " << tokToString(m_CurrentToken) << std::endl;
         case tok_identifier:
             return parseIdentifier();
         case tok_val_float:
@@ -322,6 +377,11 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
             return parseIntExpr();
         case tok_popen:
             return parseParensExpr();
+        default:
+            std::cerr << "Unexpected token instead of expression : " << tokToString(m_CurrentToken) << std::endl;
+            m_CurrentToken = m_Lexer->getToken();
+            return nullptr;
+        
     }
 }
 
@@ -373,7 +433,7 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 
     if (m_CurrentToken == tok_val_float) {
         if (declarationAST->getType() == "int") {
-            std::cerr << "Expected an int got an float, cast not implemented yet!!" << std::endl;
+            std::cerr << "Expected an int got a float, cast not implemented yet!!" << std::endl;
             return nullptr;
         }
         value = parseFloatExpr();

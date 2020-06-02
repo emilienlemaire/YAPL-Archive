@@ -75,6 +75,8 @@ int Lexer::getToken() {
             break;
     }
 
+
+
     if (isalpha(m_CurrentChar)) {
         m_Identifier = m_CurrentChar;
 
