@@ -9,19 +9,19 @@
 #include <iostream>
 
 Lexer::Lexer(const char *path) {
-    m_IsJIT = strlen(path) == 0;
+    m_IsCLI = strlen(path) == 0;
 
     std::cout << strlen(path) << std::endl;
 
-    std::cout << (m_IsJIT ? "A JIT Compiler" : "Not a JIT Compiler") << std::endl;
+    std::cout << (m_IsCLI ? "A JIT Compiler" : "Not a JIT Compiler") << std::endl;
 
-    m_File = m_IsJIT ? std::fopen(path, "r") : nullptr;
+    m_File = !m_IsCLI ? std::fopen(path, "r") : nullptr;
 
-    if (!m_File && !m_IsJIT) {
+    if (!m_File && !m_IsCLI) {
         std::string str("Failed to open file: ");
         str += path;
         std::perror(str.c_str());
-    } else if (!m_IsJIT) {
+    } else if (!m_IsCLI) {
         std::cout << "File opened successfully" << std::endl;
     } else {
         std::cout << "YAPL >>>";
@@ -29,11 +29,13 @@ Lexer::Lexer(const char *path) {
 }
 
 Lexer::~Lexer() {
-    std::fclose(m_File);
+    if (m_IsCLI) {
+        std::fclose(m_File); 
+    }
 }
 
 int Lexer::getChar() {
-    m_CurrentChar = m_IsJIT ?
+    m_CurrentChar = m_IsCLI ?
         getchar() :
         std::fgetc(m_File);
     m_CharCount++;
