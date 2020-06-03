@@ -4,50 +4,50 @@
 
 #include "Lexer/Lexer.hpp"
 #include "utils/token.h"
+
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 
 Lexer::Lexer(const char *path) {
-    m_IsCLI = strlen(path) == 0;
+    m_HasFile = strlen(path) != 0;
 
-    std::cout << strlen(path) << std::endl;
+    m_File = m_HasFile ? std::fopen(path, "r") : nullptr;
 
-    std::cout << (m_IsCLI ? "A JIT Compiler" : "Not a JIT Compiler") << std::endl;
-
-    m_File = !m_IsCLI ? std::fopen(path, "r") : nullptr;
-
-    if (!m_File && !m_IsCLI) {
+    if (!m_File && m_HasFile) {
         std::string str("Failed to open file: ");
         str += path;
         std::perror(str.c_str());
-    } else if (!m_IsCLI) {
+    } else if (m_HasFile) {
         std::cout << "File opened successfully" << std::endl;
-    } else {
-        std::cout << "YAPL >>>";
     }
 }
 
 Lexer::~Lexer() {
-    if (m_IsCLI) {
-        std::fclose(m_File); 
+    if (m_HasFile) {
+        std::fclose(m_File);
     }
 }
 
 int Lexer::getChar() {
-    m_CurrentChar = m_IsCLI ?
-        getchar() :
+    m_CurrentChar = !m_HasFile ?
+        std::fgetc(stdin) :
         std::fgetc(m_File);
     m_CharCount++;
-    if (m_CurrentChar == '\n')
+    if (m_CurrentChar == '\n'){
         m_LineCount++;
+    }
+
     return m_CurrentChar;
 }
 
 int Lexer::getToken() {
+
     while (isspace(m_CurrentChar)) {
         getChar();
     }
+
+    std::string test;
 
     switch (m_CurrentChar) {
         case ';':
@@ -150,3 +150,8 @@ const int &Lexer::getCharCount() const {
 const int &Lexer::getLineCount() const {
     return m_LineCount;
 }
+
+const bool Lexer::hasFile() const {
+    return m_HasFile;
+}
+

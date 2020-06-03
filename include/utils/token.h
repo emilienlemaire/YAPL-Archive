@@ -7,26 +7,27 @@
 
 enum token {
     tok_eof = -1,
+    tok_eol = -2,
 
     //types
-    tok_type = -2,
+    tok_type = -3,
 
     //commands
-    tok_include = -5,
-    tok_return = -6,
+    tok_include = -6,
+    tok_return = -7,
 
     //primary
-    tok_identifier = -7,
-    tok_val_int = -8,
-    tok_val_float = -9,
-    tok_val_char = -10,
+    tok_identifier = -8,
+    tok_val_int = -9,
+    tok_val_float = -10,
+    tok_val_char = -11,
 
     //syntax
-    tok_sc = -11,
-    tok_eq = -12,
-    tok_popen = -13,
-    tok_pclose = -14,
-    tok_bopen = -15,
-    tok_bclose = -16,
-    tok_comma = -17
+    tok_sc = -12,
+    tok_eq = -13,
+    tok_popen = -14,
+    tok_pclose = -15,
+    tok_bopen = -16,
+    tok_bclose = -17,
+    tok_comma = -18
 };

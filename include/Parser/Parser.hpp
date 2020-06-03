@@ -3,18 +3,32 @@
 //
 
 #pragma once
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <deque>
+#include <thread>
 #include "Lexer/Lexer.hpp"
 #include "AST/AST.hpp"
+#include "utils/token.h"
 
 class Parser {
 private:
     std::shared_ptr<Lexer> m_Lexer;
     int m_CurrentToken;
+
+    std::thread m_IO;
+    std::condition_variable m_ConditionnalVariable;
+    std::mutex m_Mutex;
+    std::deque<int> m_Tokens;
+    std::deque<int> m_ToProcess;
+
 public:
     Parser(std::shared_ptr<Lexer> lexer);
 
     ~Parser() = default;
+
+    int getNextToken();
 
     void parse();
     std::shared_ptr<ExprAST> parseNext();

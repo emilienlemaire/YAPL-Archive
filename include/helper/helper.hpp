@@ -88,5 +88,9 @@ static std::string tokToString(int tok) {
             return "bclose";
         case tok_comma:
             return "comma";
+        case tok_eol:
+            return "eol";
+        case INT_MIN:
+            return "IO Waiting";
     }
 }

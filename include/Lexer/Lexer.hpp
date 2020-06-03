@@ -13,7 +13,7 @@
 class Lexer {
 private:
     FILE* m_File;
-    bool m_IsCLI;
+    bool m_HasFile;
     std::string m_Identifier;
     std::string m_ValueStr;
     int m_CurrentChar = ' ';
@@ -34,6 +34,8 @@ public:
     int getCurrentChar() const;
     const int &getCharCount() const;
     const int &getLineCount() const;
+
+    const bool hasFile() const;
 };
 
 
