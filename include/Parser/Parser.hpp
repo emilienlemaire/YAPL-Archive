@@ -4,6 +4,7 @@
 
 #pragma once
 #include <condition_variable>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <deque>
@@ -18,6 +19,7 @@ private:
     Token m_CurrentToken;
 
     std::thread m_IO;
+    std::promise<void> m_StopIOThread;
     std::condition_variable m_ConditionnalVariable;
     std::mutex m_Mutex;
     std::deque<Token> m_Tokens;
@@ -26,7 +28,7 @@ private:
 public:
     Parser(std::shared_ptr<Lexer> lexer);
 
-    ~Parser() = default;
+    ~Parser();
 
     Token getNextToken();
 

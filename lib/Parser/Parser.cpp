@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <climits>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -18,18 +19,24 @@
 Parser::Parser(std::shared_ptr<Lexer> lexer)
         : m_Lexer(std::move(lexer))
 {
+
+    std::future<void> stopIOFuture = m_StopIOThread.get_future();
+
     std::cout << "Starting thread" << std::endl;
-    m_IO = std::thread{[&]{
+    m_IO = std::thread([&](std::future<void> t_StopFuture){
         Token tmp;
-        while(true) {
+        while(t_StopFuture.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
             tmp = m_Lexer->getToken();
             std::lock_guard lock{m_Mutex};
             m_Tokens.push_back(tmp);
             m_ConditionnalVariable.notify_one();
         }
-    }};
+
+        std::cout << "Exited thread" << std::endl;
+    }, std::move(stopIOFuture));
 
     std::cout << "Thread started" << std::endl;
+    m_CurrentToken = getNextToken();
 }
 
 Token Parser::getNextToken(){
@@ -62,7 +69,6 @@ void Parser::parse() {
             (!m_Lexer->hasFile() && true)) {
 
         std::cerr << "(yapl)>>>";
-        m_CurrentToken = getNextToken();
 
         while (m_CurrentToken.token == INT_MIN) {
             m_CurrentToken = getNextToken();
@@ -84,6 +90,12 @@ void Parser::parse() {
 }
 
 std::shared_ptr<ExprAST> Parser::parseNext() {
+
+    while (m_CurrentToken.token == INT_MIN) {
+        m_CurrentToken = getNextToken();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
     switch ( m_CurrentToken.token ) {
         case tok_type:
             return parseDeclaration();
@@ -536,3 +548,14 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 
 }
 
+Parser::~Parser() {
+    std::cout << "Parser destruction" << std::endl;
+
+    m_StopIOThread.set_value();
+
+    if (m_IO.joinable()) {
+        std::cout << "Joinable" << std::endl;
+        m_IO.detach();
+    }
+
+}

@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
         auto expr = std::make_shared<ExprAST>();
 
-        while (std::dynamic_pointer_cast<EOFExprAST>(expr)) {
+        while (!(std::dynamic_pointer_cast<EOFExprAST>(expr))) {
             expr = parser.parseNext();
         }
         //IRGenerator generator(argv[1]);
