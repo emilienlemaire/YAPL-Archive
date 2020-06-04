@@ -7,6 +7,9 @@
 #include "Parser/Parser.hpp"
 
 int main(int argc, char* argv[]) {
+
+    std::cerr << "YAPL v 0.0.1" << std::endl;
+
     if (argc < 2) {
         Lexer lexer("");
         Parser parser(std::make_shared<Lexer>(lexer));

@@ -31,6 +31,7 @@ public:
     ~Parser();
 
     Token getNextToken();
+    Token waitForToken();
 
     void parse();
     std::shared_ptr<ExprAST> parseNext();

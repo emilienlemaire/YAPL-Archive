@@ -1,6 +1,6 @@
 float b;
 
-int func(int a, float b);
+int proto(int a, float b);
 
 int func(int x) {
     return (1+2+x) * (x+(1+2));
