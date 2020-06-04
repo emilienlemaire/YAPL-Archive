@@ -23,8 +23,6 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_definitions(${LLVM_DEFINITIONS})
 
-add_compile_definitions(VERBOSE_PARSING)
-
 add_executable(
         yapl
         main.cpp)

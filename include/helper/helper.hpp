@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "utils/token.h"
+#include "utils/token.hpp"
 #include "utils/type.h"
 
 static type strToType(const std::string &str) {

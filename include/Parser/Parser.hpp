@@ -10,25 +10,25 @@
 #include <thread>
 #include "Lexer/Lexer.hpp"
 #include "AST/AST.hpp"
-#include "utils/token.h"
+#include "utils/token.hpp"
 
 class Parser {
 private:
     std::shared_ptr<Lexer> m_Lexer;
-    int m_CurrentToken;
+    Token m_CurrentToken;
 
     std::thread m_IO;
     std::condition_variable m_ConditionnalVariable;
     std::mutex m_Mutex;
-    std::deque<int> m_Tokens;
-    std::deque<int> m_ToProcess;
+    std::deque<Token> m_Tokens;
+    std::deque<Token> m_ToProcess;
 
 public:
     Parser(std::shared_ptr<Lexer> lexer);
 
     ~Parser() = default;
 
-    int getNextToken();
+    Token getNextToken();
 
     void parse();
     std::shared_ptr<ExprAST> parseNext();

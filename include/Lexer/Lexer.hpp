@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "utils/token.hpp"
+
 class Lexer {
 private:
     FILE* m_File;
@@ -25,7 +27,7 @@ public:
     ~Lexer();
 
     int getChar();
-    int getToken();
+    Token getToken();
 
     const std::string &getIdentifier() const;
 

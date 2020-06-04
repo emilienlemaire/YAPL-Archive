@@ -6,21 +6,21 @@
 #include <climits>
 #include <iostream>
 #include <memory>
-#include <helper/helper.hpp>
 #include <mutex>
 #include <thread>
-#include <utils/token.h>
 
 #include "AST/DeclarationAST.hpp"
 #include "AST/ExprAST.hpp"
+#include "helper/helper.hpp"
 #include "Parser/Parser.hpp"
+#include "utils/token.hpp"
 
 Parser::Parser(std::shared_ptr<Lexer> lexer)
         : m_Lexer(std::move(lexer))
 {
     std::cout << "Starting thread" << std::endl;
     m_IO = std::thread{[&]{
-        int tmp;
+        Token tmp;
         while(true) {
             tmp = m_Lexer->getToken();
             std::lock_guard lock{m_Mutex};
@@ -32,7 +32,7 @@ Parser::Parser(std::shared_ptr<Lexer> lexer)
     std::cout << "Thread started" << std::endl;
 }
 
-int Parser::getNextToken(){
+Token Parser::getNextToken(){
     {
         std::unique_lock lock{m_Mutex};
 
@@ -46,30 +46,30 @@ int Parser::getNextToken(){
     }
 
     if (!m_ToProcess.empty()) {
-        int nextTok = m_ToProcess[0];
+        Token nextTok = m_ToProcess[0];
         m_ToProcess.pop_front();
         return nextTok;
     }
 
-    return INT_MIN;
+    return Token{ INT_MIN };
 }
 
 void Parser::parse() {
 
     std::shared_ptr<ExprAST> parsedExpr = nullptr;
 
-    while (m_CurrentToken != tok_eof ||
+    while (m_CurrentToken.token != tok_eof ||
             (!m_Lexer->hasFile() && true)) {
 
         std::cerr << "(yapl)>>>";
         m_CurrentToken = getNextToken();
 
-        while (m_CurrentToken == INT_MIN) {
+        while (m_CurrentToken.token == INT_MIN) {
             m_CurrentToken = getNextToken();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
-        switch (m_CurrentToken) {
+        switch (m_CurrentToken.token) {
             case tok_type:
                 parseDeclaration();
                 break;
@@ -84,7 +84,7 @@ void Parser::parse() {
 }
 
 std::shared_ptr<ExprAST> Parser::parseNext() {
-    switch (m_CurrentToken) {
+    switch ( m_CurrentToken.token ) {
         case tok_type:
             return parseDeclaration();
         case tok_include:
@@ -97,17 +97,17 @@ std::shared_ptr<ExprAST> Parser::parseNext() {
 }
 
 std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
-    std::string dType = m_Lexer->getIdentifier();
+    std::string dType = m_CurrentToken.identifier;
     std::string dName;
 
     m_CurrentToken = getNextToken();
 
-    if (m_CurrentToken != tok_identifier) {
+    if (m_CurrentToken.token != tok_identifier) {
         std::cerr << "The type must be followed by an identifier!" << std::endl;
         return nullptr;
     }
 
-    dName = m_Lexer->getIdentifier();
+    dName = m_CurrentToken.identifier;
 
 #if defined(VERBOSE_PARSING) || defined(VERBOSE_DECLARATION)
     std::cout << "Parsing declaration with type: " << dType <<
@@ -116,7 +116,7 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
 
     m_CurrentToken = getNextToken();
 
-    if (m_CurrentToken == tok_popen) {
+    if (m_CurrentToken.token == tok_popen) {
 
 #if defined(VERBOSE_PARSING) || defined(VERBOSE_DECLARATION)
     std::cout << "Parsing prototype." << std::endl;
@@ -135,24 +135,29 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
 
         std::cout << std::endl;
 
-        std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+        std::cout << "Current token: " << tokToString( m_CurrentToken.token ) << std::endl;
 #endif
 
-        if (m_CurrentToken == tok_sc) {
+        if (m_CurrentToken.token == tok_sc) {
             return proto;
-        }
-
-        if (m_CurrentToken == tok_bopen) {
-            return parseDefinition(proto);
         }
 
         m_CurrentToken = getNextToken();
 
+        std::cout << "Found a function definition." << std::endl;
+
+        std::cout << "Current token: " << tokToString(m_CurrentToken.token) << std::endl;
+
+        if (m_CurrentToken.token == tok_bopen) {
+            return parseDefinition(proto);
+        }
+
+
 #if defined (VERBOSE_PARSING) || defined (VERBOSE_DECLARATION)
-        std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+        std::cout << "Current token: " << tokToString(m_CurrentToken.token) << std::endl;
 #endif
 
-        if (m_CurrentToken != tok_sc) {
+        if (m_CurrentToken.token != tok_sc) {
             std::cerr << "Expected function body or ';' after prototype" << std::endl;
             return nullptr;
         }
@@ -160,17 +165,18 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
         return proto;
     }
 
-    if (m_CurrentToken == tok_eq) {
+    if (m_CurrentToken.token == tok_eq) {
         auto declaration = std::make_shared<DeclarationAST>(dType, dName);
         return parseVariableDefinition(declaration);
     }
 
-    if (m_CurrentToken != tok_sc) {
+    if (m_CurrentToken.token != tok_sc) {
         std::cerr << "Expected ';' after variable declaration!" << std::endl;
         return nullptr;
     }
 
     m_CurrentToken = getNextToken();
+
     std::cout << "Found a variable declaration: " << dType << " " << dName << std::endl;
 
     return std::make_shared<DeclarationAST>(dType, dName);
@@ -185,17 +191,17 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
 
 #if defined(VERBOSE_PARSING) || defined(VERBOSE_PROTOTYPE)
     std::cout << "Starting prototype parsing" << std::endl;
-    std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+    std::cout << "Current token: " << tokToString(m_CurrentToken.token) << std::endl;
 #endif
 
     m_CurrentToken = getNextToken();
 
 #if defined(VERBOSE_PARSING) || defined(VERBOSE_PROTOTYPE)
-    std::cout << "Current token: " << tokToString(m_CurrentToken) << std::endl;
+    std::cout << "Current token: " << tokToString(m_CurrentToken.token) << std::endl;
 #endif
 
-    if (m_CurrentToken != tok_type) {
-        if (m_CurrentToken == tok_pclose) {
+    if (m_CurrentToken.token != tok_type) {
+        if (m_CurrentToken.token == tok_pclose) {
 
 #if defined(VERBOSE_PARSING) || defined(VERBOSE_PROTOTYPE)
             std::cout << "Found proto without args" << std::endl;
@@ -209,38 +215,38 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         }
     }
 
-    std::string argType = m_Lexer->getIdentifier();
+    std::string argType = m_CurrentToken.identifier;
     std::string argName;
     m_CurrentToken = getNextToken();
 
-    if (m_CurrentToken != tok_identifier) {
+    if (m_CurrentToken.token != tok_identifier) {
         std::cerr << "Parameters must be named!" << std::endl;
         return nullptr;
     }
 
-    argName = m_Lexer->getIdentifier();
+    argName = m_CurrentToken.identifier;
     auto fstArg = std::make_shared<DeclarationAST>(argType, argName);
     args.push_back(std::move(fstArg));
 
     m_CurrentToken = getNextToken();
 
-    while (m_CurrentToken == tok_comma) {
+    while (m_CurrentToken.token == tok_comma) {
         m_CurrentToken = getNextToken();
 
-        if (m_CurrentToken != tok_type) {
+        if (m_CurrentToken.token != tok_type) {
             std::cerr << "Parameters must be typed!" << std::endl;
             return nullptr;
         }
 
-        argType = m_Lexer->getIdentifier();
+        argType = m_CurrentToken.identifier;
         m_CurrentToken = getNextToken();
 
-        if (m_CurrentToken != tok_identifier) {
+        if (m_CurrentToken.token != tok_identifier) {
             std::cerr << "Parameters must be named!" << std::endl;
             return nullptr;
         }
 
-        argName = m_Lexer->getIdentifier();
+        argName = m_CurrentToken.identifier;
 
         for (const auto &arg : args) {
             if (arg->getName() == argName)
@@ -254,12 +260,10 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         m_CurrentToken = getNextToken();
     }
 
-    if (m_CurrentToken != tok_pclose) {
+    if (m_CurrentToken.token != tok_pclose) {
         std::cerr << "A ')' is expected at the end of a prototype" << std::endl;
         return nullptr;
     }
-
-    m_CurrentToken = getNextToken();
 
     auto proto = std::make_shared<PrototypeAST>(declarationAST, args);
 
@@ -273,34 +277,60 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
 
 std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<PrototypeAST> proto) {
     m_CurrentToken = getNextToken();
+
+    while (m_CurrentToken.token == INT_MIN) {
+        m_CurrentToken = getNextToken();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     std::vector<std::shared_ptr<ExprAST>> blocks;
 
-    while (m_CurrentToken != tok_return && m_CurrentToken != tok_bclose) {
-        if (m_CurrentToken == tok_type)
+    while (m_CurrentToken.token != tok_return && m_CurrentToken.token != tok_bclose) {
+
+        while (m_CurrentToken.token == INT_MIN) {
+            m_CurrentToken = getNextToken();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        if (m_CurrentToken.token == tok_return || m_CurrentToken.token == tok_bclose)
+            break;
+
+        if (m_CurrentToken.token == tok_type)
             blocks.push_back(std::move(parseDeclaration()));
         else
             blocks.push_back(std::move(parseExpression()));
     }
 
 
-    if (m_CurrentToken == tok_return) {
+    if (m_CurrentToken.token == tok_return) {
         m_CurrentToken = getNextToken();
         auto expr = parseExpression();
+
+        while (m_CurrentToken.token == INT_MIN) {
+            m_CurrentToken = getNextToken();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
 
         if (!expr) {
             std::cout << "Expecting expression after 'return'!" << std::endl;
             return nullptr;
         }
 
-        if (m_CurrentToken != tok_sc) {
-            std::cerr << "Expected ';' at the end of the expression line: " << m_Lexer->getLineCount() << std::endl;
+        if (m_CurrentToken.token != tok_sc) {
+            std::cerr << "Expected ';' at the end of the expression line: "
+                << m_Lexer->getLineCount() << std::endl;
             return nullptr;
         }
 
         m_CurrentToken = getNextToken();
 
-        if (m_CurrentToken != tok_bclose) {
-            std::cerr << "Expected '}' at the end of the definition" << std::endl;
+        while (m_CurrentToken.token == INT_MIN) {
+            m_CurrentToken = getNextToken();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        if (m_CurrentToken.token != tok_bclose) {
+            std::cerr << "Expected '}' at the end of the definition got: "
+                << tokToString(m_CurrentToken.token) << std::endl;
             return nullptr;
         }
 
@@ -311,7 +341,13 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
         return std::make_shared<FunctionDefinitionAST>(proto, std::move(blocks), std::move(expr));
     }
 
-    if (m_CurrentToken != tok_bclose) {
+    if (m_CurrentToken.token != tok_bclose) {
+
+        while (m_CurrentToken.token == INT_MIN) {
+            m_CurrentToken = getNextToken();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
         std::cerr << "Expected '}' at the end of the definition" << std::endl;
 
         return nullptr;
@@ -344,14 +380,14 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier() {
 
     m_CurrentToken = getNextToken();
 
-    if (m_CurrentToken != tok_popen)
+    if (m_CurrentToken.token != tok_popen)
         return std::make_shared<VariableExprAST>(identifier);
 
     m_CurrentToken = getNextToken();
 
     std::vector<std::shared_ptr<ExprAST>> args;
 
-    if (m_CurrentToken != tok_pclose) {
+    if (m_CurrentToken.token != tok_pclose) {
         while (1) {
             if (auto arg = parseExpression()) {
                 args.push_back(std::move(arg));
@@ -359,12 +395,12 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier() {
                 return nullptr;
             }
 
-            if (m_CurrentToken == tok_pclose) {
+            if (m_CurrentToken.token == tok_pclose) {
                 m_CurrentToken = getNextToken();
                 break;
             }
 
-            if (m_CurrentToken != tok_comma) {
+            if (m_CurrentToken.token != tok_comma) {
                 m_CurrentToken = getNextToken();
                 std::cerr << "Expected ')' or ',' in argument list" << std::endl;
                 return nullptr;
@@ -398,7 +434,7 @@ std::shared_ptr<ExprAST> Parser::parseParensExpr() {
     if (!expr)
         return nullptr;
 
-    if (m_CurrentToken != tok_pclose) {
+    if (m_CurrentToken.token != tok_pclose) {
         std::cerr << "Expected ')'" << std::endl;
     }
 
@@ -417,7 +453,11 @@ std::shared_ptr<ExprAST> Parser::parseExpression() {
 }
 
 std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
-    switch (m_CurrentToken) {
+    while (m_CurrentToken.token == INT_MIN) {
+        m_CurrentToken = getNextToken();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    switch (m_CurrentToken.token) {
         case tok_identifier:
             return parseIdentifier();
         case tok_val_float:
@@ -427,7 +467,7 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
         case tok_popen:
             return parseParensExpr();
         default:
-            std::cerr << "Unexpected token instead of expression : " << tokToString(m_CurrentToken) << std::endl;
+            std::cerr << "Unexpected token instead of expression : " << tokToString(m_CurrentToken.token) << std::endl;
             m_CurrentToken = getNextToken();
             return nullptr;
     }
@@ -435,13 +475,13 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
 
 std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS) {
     while (true) {
-        int tokPrec = getTokenPrecedence(m_CurrentToken);
+        int tokPrec = getTokenPrecedence(m_CurrentToken.token);
         if (tokPrec < exprPrec) {
             //m_CurrentToken = getNextToken();
             return LHS;
         }
 
-        int binOp = m_CurrentToken;
+        int binOp = m_CurrentToken.token;
 
         m_CurrentToken = getNextToken();
 
@@ -450,7 +490,7 @@ std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<E
         if (!RHS)
             return nullptr;
 
-        int nextPrec = getTokenPrecedence(m_CurrentToken);
+        int nextPrec = getTokenPrecedence(m_CurrentToken.token);
 
         if (tokPrec < nextPrec) {
             RHS = parseBinaryExpr(tokPrec + 1, std::move(RHS));
@@ -469,7 +509,7 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
     m_CurrentToken = getNextToken();
     std::shared_ptr<NumberExprAST> value;
 
-    if (m_CurrentToken == tok_val_int) {
+    if (m_CurrentToken.token == tok_val_int) {
         if (declarationAST->getType() == "float") {
             std::cerr << "Expected a float got an int, cast not implemented yet!!" << std::endl;
             return nullptr;
@@ -479,7 +519,7 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
         return std::make_shared<VariableDefinitionAST>(declarationAST->getType(), declarationAST->getName(), value);
     }
 
-    if (m_CurrentToken == tok_val_float) {
+    if (m_CurrentToken.token == tok_val_float) {
         if (declarationAST->getType() == "int") {
             std::cerr << "Expected an int got a float, cast not implemented yet!!" << std::endl;
             return nullptr;
@@ -489,7 +529,7 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
         return std::make_shared<VariableDefinitionAST>(declarationAST->getType(), declarationAST->getName(), value);
     }
 
-    std::cerr << "Unexpected token: " << tokToString(m_CurrentToken) <<
+    std::cerr << "Unexpected token: " << tokToString(m_CurrentToken.token) <<
               " when expected " << declarationAST->getType() << std::endl;
 
     return nullptr;

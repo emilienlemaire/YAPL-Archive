@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 
+#include "AST/ExprAST.hpp"
 #include "IRGenerator/IRGenerator.hpp"
 #include "Lexer/Lexer.hpp"
 #include "Parser/Parser.hpp"
@@ -17,7 +18,11 @@ int main(int argc, char* argv[]) {
         Lexer lexer(argv[1]);
         Parser parser(std::make_shared<Lexer>(lexer));
 
-        parser.parse();
+        auto expr = std::make_shared<ExprAST>();
+
+        while (std::dynamic_pointer_cast<EOFExprAST>(expr)) {
+            expr = parser.parseNext();
+        }
         //IRGenerator generator(argv[1]);
         //generator.generate();
     }

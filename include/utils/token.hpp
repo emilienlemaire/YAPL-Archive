@@ -5,6 +5,7 @@
 #pragma once
 
 
+#include <string>
 enum token {
     tok_eof = -1,
     tok_eol = -2,
@@ -30,4 +31,10 @@ enum token {
     tok_bopen = -16,
     tok_bclose = -17,
     tok_comma = -18
+};
+
+struct Token {
+    int token;
+    std::string identifier = "";
+    std::string valueStr = "";
 };

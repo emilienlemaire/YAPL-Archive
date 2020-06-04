@@ -2,12 +2,11 @@
 // Created by Emilien Lemaire on 19/04/2020.
 //
 
-#include "Lexer/Lexer.hpp"
-#include "utils/token.h"
-
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+
+#include "Lexer/Lexer.hpp"
 
 Lexer::Lexer(const char *path) {
     m_HasFile = strlen(path) != 0;
@@ -41,7 +40,7 @@ int Lexer::getChar() {
     return m_CurrentChar;
 }
 
-int Lexer::getToken() {
+Token Lexer::getToken() {
 
     while (isspace(m_CurrentChar)) {
         getChar();
@@ -52,25 +51,25 @@ int Lexer::getToken() {
     switch (m_CurrentChar) {
         case ';':
             getChar();
-            return tok_sc;
+            return Token{ token::tok_sc };
         case '=':
             getChar();
-            return tok_eq;
+            return Token{ token::tok_eq };
         case '(':
             getChar();
-            return tok_popen;
+            return Token{ token::tok_popen };
         case ')':
             getChar();
-            return tok_pclose;
+            return Token{ token::tok_pclose };
         case '{':
             getChar();
-            return tok_bopen;
+            return Token{ token::tok_bopen };
         case '}':
             getChar();
-            return tok_bclose;
+            return Token{ token::tok_bclose };
         case ',':
             getChar();
-            return tok_comma;
+            return Token{ token::tok_comma };
         default:
             break;
     }
@@ -85,22 +84,22 @@ int Lexer::getToken() {
         }
 
         if (m_Identifier == "include") {
-            return tok_include;
+            return Token{ token::tok_include };
         }
 
         if (m_Identifier == "return") {
-            return tok_return;
+            return Token{ token::tok_return };
         }
 
         if (m_Identifier == "float") {
-            return tok_type;
+            return Token{ token::tok_type, m_Identifier };
         }
 
         if (m_Identifier == "int") {
-            return tok_type;
+            return Token{ token::tok_type, m_Identifier };
         }
 
-        return tok_identifier;
+        return Token{ token::tok_identifier, m_Identifier };
     }
 
     if(isdigit(m_CurrentChar) || m_CurrentChar == '.') {
@@ -120,15 +119,15 @@ int Lexer::getToken() {
         } while (isdigit(m_CurrentChar) || m_CurrentChar == '.');
 
         if (isFloat) {
-            return tok_val_float;
+            return Token{ token::tok_val_float, "", m_ValueStr };
         }
 
-        return tok_val_int;
+        return Token{ token::tok_val_int, "", m_Identifier };
     }
 
     int tok = m_CurrentChar;
     getChar();
-    return tok;
+    return Token{ tok };
 }
 
 const std::string &Lexer::getIdentifier() const {
