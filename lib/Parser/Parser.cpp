@@ -366,13 +366,13 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier() {
 }
 
 std::shared_ptr<IntExprAST> Parser::parseIntExpr() {
-    int val = std::stoi(m_Lexer->getValueStr());
+    int val = std::stoi(m_CurrentToken.valueStr);
     m_CurrentToken = waitForToken();
     return std::make_shared<IntExprAST>(val);
 }
 
 std::shared_ptr<FloatExprAST> Parser::parseFloatExpr() {
-    double val = std::stod(m_Lexer->getValueStr());
+    double val = std::stod(m_CurrentToken.valueStr);
     m_CurrentToken = waitForToken();
     return std::make_shared<FloatExprAST>(val);
 }
@@ -426,7 +426,6 @@ std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<E
     while (true) {
         int tokPrec = getTokenPrecedence(m_CurrentToken.token);
         if (tokPrec < exprPrec) {
-            //m_CurrentToken = waitForToken();
             return LHS;
         }
 

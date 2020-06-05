@@ -25,20 +25,26 @@ IRGenerator::IRGenerator(const char * argv)
 
 void IRGenerator::generate() {
 
+    if (!m_Lexer->hasFile()) {
+        std::cerr << "(YAPL)>>";
+    }
     std::shared_ptr<ExprAST> expr = m_Parser.parseNext();
 
     while (!(std::dynamic_pointer_cast<EOFExprAST>(expr))) {
+
         if (auto parsedExpr = std::dynamic_pointer_cast<DeclarationAST>(expr)) {
-            fprintf(stderr, "Read declaration: ");
+            fprintf(stderr, "Read declaration:\n");
             if (auto *declaration = generateDeclaration(std::move(parsedExpr))) {
                 declaration->print(llvm::errs());
             }
-             fprintf(stderr, "\n");
         } else if (expr) {
             std::cerr << "Read top level: ";
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
-            std::cerr << std::endl;
+        }
+
+        if (!m_Lexer->hasFile()) {
+            std::cerr << "(YAPL)>>>";
         }
         expr = m_Parser.parseNext();
     }

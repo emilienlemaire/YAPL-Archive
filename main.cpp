@@ -11,23 +11,11 @@ int main(int argc, char* argv[]) {
     std::cerr << "YAPL v 0.0.1" << std::endl;
 
     if (argc < 2) {
-        Lexer lexer("");
-        Parser parser(std::make_shared<Lexer>(lexer));
-
-        parser.parse();
-        //IRGenerator generator("");
-        //generator.generate();
+        IRGenerator generator("");
+        generator.generate();
     } else {
-        Lexer lexer(argv[1]);
-        Parser parser(std::make_shared<Lexer>(lexer));
-
-        auto expr = std::make_shared<ExprAST>();
-
-        while (!(std::dynamic_pointer_cast<EOFExprAST>(expr))) {
-            expr = parser.parseNext();
-        }
-        //IRGenerator generator(argv[1]);
-        //generator.generate();
+        IRGenerator generator(argv[1]);
+        generator.generate();
     }
 
     return 0;

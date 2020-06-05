@@ -122,7 +122,7 @@ Token Lexer::getToken() {
             return Token{ token::tok_val_float, "", m_ValueStr };
         }
 
-        return Token{ token::tok_val_int, "", m_Identifier };
+        return Token{ token::tok_val_int, "", m_ValueStr };
     }
 
     int tok = m_CurrentChar;
