@@ -13,6 +13,7 @@
 
 #include "PassManager/PassManager.hpp"
 #include <IRGenerator/IRGenerator.hpp>
+#include <cstdio>
 #include <memory>
 
 IRGenerator::IRGenerator(const char * argv)
@@ -38,9 +39,10 @@ void IRGenerator::generate() {
                 declaration->print(llvm::errs());
             }
         } else if (expr) {
-            std::cerr << "Read top level: ";
+            std::cerr << "Read top level:\n";
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
+            fprintf(stderr, "\n");
         }
 
         if (!m_Lexer->hasFile()) {

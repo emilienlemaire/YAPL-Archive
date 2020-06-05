@@ -60,8 +60,8 @@ Token Parser::getNextToken(){
 }
 
 Token Parser::waitForToken() {
+
     Token tok = getNextToken();
-        
     while (tok.token == INT_MIN) {
         tok = getNextToken();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -98,8 +98,6 @@ void Parser::parse() {
 std::shared_ptr<ExprAST> Parser::parseNext() {
 
     m_CurrentToken = waitForToken();
-
-    std::cout << "Parsing next: " << tokToString(m_CurrentToken.token) << std::endl;
 
     switch ( m_CurrentToken.token ) {
         case tok_type:
@@ -483,13 +481,10 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 }
 
 Parser::~Parser() {
-    std::cerr << "Parser destruction" << std::endl;
 
     m_StopIOThread.set_value();
 
     if (m_IO.joinable()) {
-        std::cerr << "Joinable" << std::endl;
-        m_IO.detach();
+        m_IO.join();
     }
-
 }
