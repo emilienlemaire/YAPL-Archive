@@ -1,130 +1,88 @@
 #pragma once
 
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/ADT/iterator_range.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
+#include <llvm/ADT/StringRef.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
+#include <llvm/ExecutionEngine/Orc/Core.h>
+#include <llvm/ExecutionEngine/Orc/ExecutionUtils.h>
 #include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
-#include <llvm/ExecutionEngine/Orc/LambdaResolver.h>
+#include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
 #include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
-#include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/DataLayout.h>
-#include <llvm/IR/Mangler.h>
-#include <llvm/Support/DynamicLibrary.h>
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/Target/TargetMachine.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/Support/Error.h>
 
-#include <algorithm>
-#include <map>
 #include <memory>
-#include <string>
 #include <type_traits>
-#include <vector>
 
 class YAPLJIT {
-public:
-    using ObjectLayerT = llvm::orc::LegacyRTDyldObjectLinkingLayer;
-    using CompileLayerT = llvm::orc::LegacyIRCompileLayer<ObjectLayerT, llvm::orc::SimpleCompiler>;
-
 private:
     llvm::orc::ExecutionSession m_ExecutionSession;
-    std::shared_ptr<llvm::orc::SymbolResolver> m_Resolver;
-    std::unique_ptr<llvm::TargetMachine> m_TargetMachine;
-    const llvm::DataLayout m_DataLayout;
-    ObjectLayerT m_ObjectLayer;
-    CompileLayerT m_CompileLayer;
-    std::vector<llvm::orc::VModuleKey> m_ModuleKeys;
+    llvm::orc::RTDyldObjectLinkingLayer m_ObjectLayer;
+    llvm::orc::IRCompileLayer m_CompileLayer;
+
+    llvm::DataLayout m_DataLayout;
+    llvm::orc::MangleAndInterner m_Mangle;
+    llvm::orc::ThreadSafeContext m_TSContext;
+
+    llvm::orc::JITDylib &m_MainJITDylib;
 
 public:
-    YAPLJIT()
-        : m_Resolver(llvm::orc::createLegacyLookupResolver(
-                        m_ExecutionSession,
-                        [this](llvm::StringRef name) {
-                            return findMangledSymbol(name);
-                        },
-                        [](llvm::Error err) {
-                            llvm::cantFail(std::move(err), "lookupFlags failed.");
-                        }
-                    )
-                ),
-        m_TargetMachine(llvm::EngineBuilder().selectTarget()),
-        m_DataLayout(m_TargetMachine->createDataLayout()),
-        m_ObjectLayer(
-                llvm::AcknowledgeORCv1Deprecation,
+    YAPLJIT(llvm::orc::JITTargetMachineBuilder targetMachineBuilder, llvm::DataLayout dataLayout)
+        : m_ObjectLayer(
                 m_ExecutionSession,
-                [this](llvm::orc::VModuleKey) {
-                return ObjectLayerT::Resources {
-                        std::make_shared<llvm::SectionMemoryManager>(),
-                        m_Resolver
-                    };
+                []() {
+                    return std::make_unique<llvm::SectionMemoryManager>();
                 }
             ),
         m_CompileLayer(
-                    llvm::AcknowledgeORCv1Deprecation,
-                    m_ObjectLayer,
-                    llvm::orc::SimpleCompiler(*m_TargetMachine)
-                )
+                m_ExecutionSession,
+                m_ObjectLayer,
+                std::make_unique<llvm::orc::ConcurrentIRCompiler>(std::move(targetMachineBuilder))
+            ),
+        m_DataLayout(std::move(dataLayout)),
+        m_Mangle(m_ExecutionSession, this->m_DataLayout),
+        m_TSContext(std::make_unique<llvm::LLVMContext>()),
+        m_MainJITDylib(m_ExecutionSession.createBareJITDylib("<main>"))
         {
-            llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+            m_MainJITDylib.addGenerator(
+                    llvm::cantFail(
+                        llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+                                m_DataLayout.getGlobalPrefix()
+                            )
+                        )
+                    );
         }
 
-    llvm::TargetMachine &getTargetMachine() { return *m_TargetMachine; }
+    static llvm::Expected<std::unique_ptr<YAPLJIT>> Create() {
+        auto JITTargetMachine = llvm::orc::JITTargetMachineBuilder::detectHost();
 
-    llvm::orc::VModuleKey addModule(std::unique_ptr<llvm::Module> module) {
-        auto key = m_ExecutionSession.allocateVModule();
-        llvm::cantFail(m_CompileLayer.addModule(key, std::move(module)));
-        m_ModuleKeys.push_back(key);
-        return key;
-    }
-
-    void removeModule(llvm::orc::VModuleKey key) {
-        m_ModuleKeys.erase(llvm::find(m_ModuleKeys, key));
-        llvm::cantFail(m_CompileLayer.removeModule(key));
-    }
-
-    llvm::JITSymbol findSymbol(const std::string &name) {
-        return findMangledSymbol(mangle(name));
-    }
-
-private:
-    std::string mangle(const std::string &name) {
-        std::string mangledName;
-
-        {
-            llvm::raw_string_ostream mangledNameStream(mangledName);
-            llvm::Mangler::getNameWithPrefix(mangledNameStream, name, m_DataLayout);
+        if (!JITTargetMachine) {
+            return JITTargetMachine.takeError();
         }
 
-        return mangledName;
+        auto dataLayout = JITTargetMachine->getDefaultDataLayoutForTarget();
+
+        if (!dataLayout) {
+            return dataLayout.takeError();
+        }
+
+        return std::make_unique<YAPLJIT>(std::move(*JITTargetMachine), std::move(*dataLayout));
     }
-    
-    llvm::JITSymbol findMangledSymbol(const std::string &name) {
-#ifdef _WIN32
-        const bool exportedSymbolOnly = false;
-#else
-        const bool exportedSymbolOnly = true;
-#endif
 
-        for (auto key : llvm::make_range(m_ModuleKeys.begin(), m_ModuleKeys.end())) {
-            if (auto symbol = m_CompileLayer.findSymbolIn(key, name, exportedSymbolOnly)) {
-                return symbol;
-            }
-        }
+    const llvm::DataLayout &getDataLayout() const { return m_DataLayout; }
 
-        if (auto symbolAddress = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)) {
-            return llvm::JITSymbol(symbolAddress, llvm::JITSymbolFlags::Exported);
-        }
+    llvm::LLVMContext &getContext() { return *m_TSContext.getContext(); }
 
-#ifdef _WIN32
-        if (name.length() > 2 && name[0] == '_') {
-            if (auto symbolAddress = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name.substr(1))) {
-                return llvm::JITSymbol(symbolAddress, llvm::JITSymbolFlags::Exported);
-            }
-        }
-#endif
-
-        return nullptr;
+    llvm::Error addModule(std::unique_ptr<llvm::Module> module) {
+        return m_CompileLayer.add(m_MainJITDylib,
+                llvm::orc::ThreadSafeModule(std::move(module), m_TSContext));
     }
+
+    llvm::Expected<llvm::JITEvaluatedSymbol> lookup(const std::string &name) {
+        return m_ExecutionSession.lookup({&m_MainJITDylib}, m_Mangle(name));
+    }
+
 };

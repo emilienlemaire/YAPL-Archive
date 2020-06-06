@@ -11,16 +11,34 @@
  *
  * */
 
+#include "AST/ExprAST.hpp"
 #include "PassManager/PassManager.hpp"
+#include "YAPLJIT/YAPLJIT.hpp"
+#include "llvm-c/Target.h"
+#include "llvm/Support/Error.h"
+
+#include <llvm/Support/TargetSelect.h>
+
 #include <IRGenerator/IRGenerator.hpp>
+#include <cassert>
 #include <cstdio>
 #include <memory>
+#include <type_traits>
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
 {
+
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
+
     m_Module = std::make_unique<llvm::Module>("test", m_Context);
     m_Builder = std::make_unique<llvm::IRBuilder<>>(m_Context);
+    m_YAPLJIT = std::move(YAPLJIT::Create().get());
+
+    m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
+
     m_PassManager = std::make_unique<PassManager>(m_Module.get());
 }
 
@@ -43,6 +61,20 @@ void IRGenerator::generate() {
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
             fprintf(stderr, "\n");
+            auto H = m_YAPLJIT->addModule(std::move(m_Module));
+            reloadModuleAndPassManger();
+
+            auto exprSymbol = m_YAPLJIT->lookup("__anon_expr").get();
+
+            if (auto fCallExpr = std::dynamic_pointer_cast<CallFunctionExprAST>(expr)) {
+                exprSymbol = m_YAPLJIT->lookup(fCallExpr->getCallee()).get();
+            }
+
+            assert(exprSymbol && "Function not found");
+
+            double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
+
+            fprintf(stderr, "Evaluated to %f\n", FP());
         }
 
         if (!m_Lexer->hasFile()) {
@@ -222,7 +254,7 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
     m_NamedValues.clear();
 
     for (auto &arg : function->args()) {
-        m_NamedValues[arg.getName()] = &arg;
+        m_NamedValues[arg.getName().str()] = &arg;
     }
     auto returnExpr = parsedFunctionDefinition->getReturnExpr();
     if (llvm::Value *retValue = generateTopLevel(returnExpr)) {
@@ -245,6 +277,7 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
 
 void IRGenerator::reloadModuleAndPassManger() {
     m_Module = std::make_unique<llvm::Module>("JIT", m_Context);
+    m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
     m_PassManager = std::make_unique<PassManager>(m_Module.get());
 }
 

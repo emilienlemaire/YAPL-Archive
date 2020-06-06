@@ -2,3 +2,6 @@ cmake-build-*
 compile_commands.json
 .clangd
 build
+llvm-libs
+include/llvm
+include/llvm-c
