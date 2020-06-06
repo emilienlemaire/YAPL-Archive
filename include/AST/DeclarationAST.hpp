@@ -11,20 +11,15 @@
 
 class DeclarationAST: public ExprAST {
 protected:
-    std::string m_Type;
     std::string m_Name;
 public:
     DeclarationAST(const std::string &mType, const std::string &mName)
-        : m_Type(mType), m_Name(mName)
+        : ExprAST(mType), m_Name(mName)
     {}
 
     DeclarationAST()
-        : m_Type("int"), m_Name("")
+        : ExprAST("int"), m_Name("")
     {}
-
-    const std::string &getType() const {
-        return m_Type;
-    }
 
     const std::string &getName() const {
         return m_Name;
@@ -80,7 +75,7 @@ private:
     std::shared_ptr<PrototypeAST> m_Proto;
 public:
     AnonExprAst(std::shared_ptr<ExprAST> expr, std::shared_ptr<PrototypeAST> proto)
-        : m_Expr(expr), m_Proto(proto)
+        :ExprAST(proto->getType()), m_Expr(expr), m_Proto(proto)
     {}
 
     std::shared_ptr<ExprAST> getExpr() { return m_Expr; }

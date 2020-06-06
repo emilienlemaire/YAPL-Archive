@@ -10,21 +10,27 @@
 
 class ExprAST {
 private:
+    std::string m_Type;
 public:
+    ExprAST(std::string type)
+        : m_Type(type)
+    {}
+
     virtual ~ExprAST() = default;
+
+    const std::string getType() const { return m_Type; }
 };
 
 class EOFExprAST : public ExprAST {
-public:
-    EOFExprAST() = default;
+
 };
 
 class VariableExprAST : public ExprAST {
 private:
     std::string m_Identifier;
 public:
-    VariableExprAST(const std::string &mIdentifier)
-        : m_Identifier(mIdentifier)
+    VariableExprAST(std::string type, const std::string &mIdentifier)
+        : ExprAST(type), m_Identifier(mIdentifier)
     {}
 
     const std::string &getIdentifier() const { return m_Identifier; }
@@ -37,6 +43,9 @@ protected:
         float fval;
     };
 public:
+    NumberExprAST(std::string type)
+        : ExprAST(type)
+    {}
     virtual const num &getValue() const = 0;
 };
 
@@ -45,6 +54,7 @@ private:
     num m_Value;
 public:
     IntExprAST(int value)
+        : NumberExprAST("int") 
     {
         m_Value.ival = value;
     }
@@ -59,6 +69,7 @@ private:
     num m_Value;
 public:
     FloatExprAST(double value)
+        : NumberExprAST("float")
     {
         m_Value.fval = value;
     }
@@ -77,7 +88,7 @@ public:
     BinaryOpExprAST(char op,
                     std::shared_ptr<ExprAST> LHS,
                     std::shared_ptr<ExprAST> RHS)
-        : m_Op(op), m_LHS(std::move(LHS)), m_RHS(std::move(RHS))
+        :ExprAST(LHS->getType()), m_Op(op), m_LHS(std::move(LHS)), m_RHS(std::move(RHS))
     {}
 
     const char &getOp() const { return m_Op; }
@@ -90,9 +101,9 @@ private:
     std::string m_Callee;
     std::vector<std::shared_ptr<ExprAST>> m_Args;
 public:
-    CallFunctionExprAST(const std::string &mCallee,
+    CallFunctionExprAST(const std::string &type, const std::string &mCallee,
                         std::vector<std::shared_ptr<ExprAST>> mArgs)
-        : m_Callee(mCallee),  m_Args(std::move(mArgs))
+        :ExprAST(type) ,m_Callee(mCallee),  m_Args(std::move(mArgs))
     {}
 
     const std::string &getCallee() const { return m_Callee; }
