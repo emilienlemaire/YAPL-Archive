@@ -311,9 +311,7 @@ std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
         auto proto = std::make_shared<PrototypeAST>(std::move(declaration),
                                                     std::vector<std::shared_ptr<DeclarationAST>>());
 
-        auto vec = std::vector<std::shared_ptr<ExprAST>>();
-
-        return std::make_shared<FunctionDefinitionAST>(proto, std::move(vec), std::move(expr));
+        return std::make_shared<AnonExprAst>(std::move(expr), std::move(proto));
     }
 
     return nullptr;

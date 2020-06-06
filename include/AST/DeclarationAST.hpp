@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "ExprAST.hpp"
@@ -71,4 +72,17 @@ public:
                           std::shared_ptr<NumberExprAST> mValue)
     : DeclarationAST(mType, mName), m_Value(std::move(mValue))
     {}
+};
+
+class AnonExprAst: public ExprAST {
+private:
+    std::shared_ptr<ExprAST> m_Expr;
+    std::shared_ptr<PrototypeAST> m_Proto;
+public:
+    AnonExprAst(std::shared_ptr<ExprAST> expr, std::shared_ptr<PrototypeAST> proto)
+        : m_Expr(expr), m_Proto(proto)
+    {}
+
+    std::shared_ptr<ExprAST> getExpr() { return m_Expr; }
+    std::shared_ptr<PrototypeAST> getProto() { return m_Proto; }
 };

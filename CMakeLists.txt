@@ -1,23 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(MY_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
-
-set(CMAKE_SYSROOT "${MY_SYSROOT}")
-set(CMAKE_OSX_SYSROOT "${MY_SYSROOT}")
-set(CMAKE_SYSROOT_LINK "${MY_SYSROOT}")
-set(CMAKE_SYSROOT_COMPILE "${MY_SYSROOT}")
-
+set(CMAKE_C_FLAGS "-O0")
+set(CMAKE_CXX_FLAGS "-O0")
 set(CMAKE_C_COMPILER "/usr/local/bin/clang")
 set(CMAKE_CXX_COMPILER "/usr/local/bin/clang++")
 
-set(CMAKE_FIND_ROOT_PATH "${MY_SYSROOT}")
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
-
 project(yapl)
-
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

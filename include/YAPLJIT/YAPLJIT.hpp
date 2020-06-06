@@ -1,6 +1,5 @@
 #pragma once
 
-#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
@@ -12,10 +11,8 @@
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/LLVMContext.h>
-#include <llvm/Support/Error.h>
 
 #include <memory>
-#include <type_traits>
 
 class YAPLJIT {
 private:

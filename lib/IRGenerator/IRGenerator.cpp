@@ -11,11 +11,8 @@
  *
  * */
 
+#include "AST/DeclarationAST.hpp"
 #include "AST/ExprAST.hpp"
-#include "PassManager/PassManager.hpp"
-#include "YAPLJIT/YAPLJIT.hpp"
-#include "llvm-c/Target.h"
-#include "llvm/Support/Error.h"
 
 #include <llvm/Support/TargetSelect.h>
 
@@ -23,7 +20,6 @@
 #include <cassert>
 #include <cstdio>
 #include <memory>
-#include <type_traits>
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
@@ -45,7 +41,7 @@ IRGenerator::IRGenerator(const char * argv)
 void IRGenerator::generate() {
 
     if (!m_Lexer->hasFile()) {
-        std::cerr << "(YAPL)>>";
+        std::cerr << "(YAPL)>>>";
     }
     std::shared_ptr<ExprAST> expr = m_Parser.parseNext();
 
@@ -65,10 +61,6 @@ void IRGenerator::generate() {
             reloadModuleAndPassManger();
 
             auto exprSymbol = m_YAPLJIT->lookup("__anon_expr").get();
-
-            if (auto fCallExpr = std::dynamic_pointer_cast<CallFunctionExprAST>(expr)) {
-                exprSymbol = m_YAPLJIT->lookup(fCallExpr->getCallee()).get();
-            }
 
             assert(exprSymbol && "Function not found");
 
@@ -101,6 +93,15 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
         }
         std::cerr << "Number expression not recognized" << std::endl;
         return nullptr;
+    }
+    
+
+    if (auto anonExpr = std::dynamic_pointer_cast<AnonExprAst>(parsedExpression)) {
+        auto functionBlocks = std::vector<std::shared_ptr<ExprAST>>();
+        auto anonFuncExpr = std::make_shared<FunctionDefinitionAST>(anonExpr->getProto(),
+                std::move(functionBlocks), anonExpr->getExpr());
+
+        return generateFunctionDefinition(std::move(anonFuncExpr));
     }
 
     if (auto parsedVariable = std::dynamic_pointer_cast<VariableExprAST>(parsedExpression)) {
