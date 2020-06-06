@@ -171,13 +171,15 @@ llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprA
     auto args = parsedFunctionCall->getArgs();
     std::vector<llvm::Value *> callArgs;
     if (calleeFunction->arg_size() != args.size()) {
-        for (const auto &arg : args) {
-            llvm::Value *argVal = generateTopLevel(std::move(arg));
-            callArgs.push_back(argVal);
+        return nullptr;
+    }
 
-            if(!callArgs.back()) {
-                return nullptr;
-            }
+    for (const auto &arg : args) {
+        llvm::Value *argVal = generateTopLevel(std::move(arg));
+        callArgs.push_back(argVal);
+
+        if(!callArgs.back()) {
+            return nullptr;
         }
     }
     return m_Builder->CreateCall(calleeFunction, callArgs, "calltmp");

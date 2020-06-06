@@ -354,7 +354,7 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier() {
     }
 
 
-    std::cerr << "Found a function call: " << identifier << std::endl;
+    std::cerr << "Found a function call: " << identifier << " with " << args.size() << " args" <<std::endl;
 
     return std::make_shared<CallFunctionExprAST>(identifier, std::move(args));
 }
