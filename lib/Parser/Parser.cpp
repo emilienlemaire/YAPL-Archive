@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <ostream>
+#include <string>
 #include <thread>
 
 #include "AST/DeclarationAST.hpp"
@@ -304,10 +305,7 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
 std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
     if (auto expr = parseExpression()) {
 
-        if (auto callExpr = std::dynamic_pointer_cast<CallFunctionExprAST>(expr))
-            return callExpr;
-
-        auto declaration = std::make_shared<DeclarationAST>("float", "__anon_expr");
+        auto declaration = std::make_shared<DeclarationAST>("float", std::to_string(m_AnonFuncNum));
         auto proto = std::make_shared<PrototypeAST>(std::move(declaration),
                                                     std::vector<std::shared_ptr<DeclarationAST>>());
 

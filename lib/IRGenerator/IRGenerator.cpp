@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstdio>
 #include <memory>
+#include <string>
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
@@ -60,13 +61,17 @@ void IRGenerator::generate() {
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
             reloadModuleAndPassManger();
 
-            auto exprSymbol = m_YAPLJIT->lookup("__anon_expr").get();
+            std::cout << "Looking for: " << std::to_string(m_Parser.getAnonFuncNum()) << std::endl;
+
+            auto exprSymbol = m_YAPLJIT->lookup(std::to_string(m_Parser.getAnonFuncNum())).get();
 
             assert(exprSymbol && "Function not found");
 
             double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
 
             fprintf(stderr, "Evaluated to %f\n", FP());
+
+            m_Parser.incrementAnonFuncNum();
         }
 
         if (!m_Lexer->hasFile()) {
@@ -94,7 +99,6 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
         std::cerr << "Number expression not recognized" << std::endl;
         return nullptr;
     }
-    
 
     if (auto anonExpr = std::dynamic_pointer_cast<AnonExprAst>(parsedExpression)) {
         auto functionBlocks = std::vector<std::shared_ptr<ExprAST>>();

@@ -25,6 +25,8 @@ private:
     std::deque<Token> m_Tokens;
     std::deque<Token> m_ToProcess;
 
+    int m_AnonFuncNum = 0;
+
 public:
     Parser(std::shared_ptr<Lexer> lexer);
 
@@ -32,6 +34,9 @@ public:
 
     Token getNextToken();
     Token waitForToken();
+
+    const int getAnonFuncNum() const { return m_AnonFuncNum; }
+    void incrementAnonFuncNum() { m_AnonFuncNum++; }
 
     void parse();
     std::shared_ptr<ExprAST> parseNext();
