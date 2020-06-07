@@ -13,10 +13,13 @@
 
 #include "AST/DeclarationAST.hpp"
 #include "AST/ExprAST.hpp"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <_types/_uint32_t.h>
+#include <iostream>
 #include <llvm/Support/TargetSelect.h>
 
 #include <IRGenerator/IRGenerator.hpp>
@@ -61,24 +64,21 @@ void IRGenerator::generate() {
             std::cerr << "Read top level:\n";
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
+            topLevel->getType()->getPointerElementType()->print(llvm::errs());
+            bool isFloat = false;
+            auto type = topLevel->getType()->getPointerElementType();
+
+            if (auto fType = static_cast<llvm::FunctionType*>(type)) {
+                isFloat = fType->getReturnType()->isDoubleTy();
+            }
+
             fprintf(stderr, "\n");
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
             reloadModuleAndPassManger();
 
-            std::cout << "Looking for: " << std::to_string(m_Parser.getAnonFuncNum()) << std::endl;
-
             auto exprSymbol = m_YAPLJIT->lookup(std::to_string(m_Parser.getAnonFuncNum())).get();
 
-            std::cerr << "Search complete" << std::endl;
-
             assert(exprSymbol && "Function not found");
-
-            std::cerr << "Assert passed" << std::endl;
-
-            auto type = topLevel->getType();
-
-            bool isFloat = type ? true : false;
-
             if (isFloat) {
                 std::cerr << "It is a float" << std::endl;
                 double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
@@ -98,9 +98,6 @@ void IRGenerator::generate() {
         }
         expr = m_Parser.parseNext();
     }
-
-    std::cout << "Reached EOF" << std::endl;
-
 }
 
 /******************** ExprAST ********************************************/
@@ -124,7 +121,9 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
         auto anonFuncExpr = std::make_shared<FunctionDefinitionAST>(anonExpr->getProto(),
                 std::move(functionBlocks), anonExpr->getExpr());
 
-        return generateFunctionDefinition(std::move(anonFuncExpr));
+        auto function = generateFunctionDefinition(std::move(anonFuncExpr));
+
+        return function;
     }
 
     if (auto parsedVariable = std::dynamic_pointer_cast<VariableExprAST>(parsedExpression)) {
@@ -142,7 +141,8 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
     }
 
     if (auto parsedCall = std::dynamic_pointer_cast<CallFunctionExprAST>(parsedExpression)) {
-        return generateFunctionCall(std::move(parsedCall));
+        auto call = generateFunctionCall(std::move(parsedCall));
+        return call;
     }
 
     return nullptr;
@@ -273,6 +273,7 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
     for (auto &arg : function->args()) {
         arg.setName(params[idx++]->getName());
     }
+
     return function;
 }
 

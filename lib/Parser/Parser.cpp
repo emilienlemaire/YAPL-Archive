@@ -138,10 +138,7 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
 
         m_CurrentToken = waitForToken();
 
-
         if (m_CurrentToken.token == tok_bopen) {
-            std::cerr << "Found a function definition: " << proto->getName() << std::endl;
-
             return parseDefinition(proto);
         }
 
@@ -150,22 +147,16 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
             return nullptr;
         }
 
-        std::cerr << "Found a prototype: " << proto->getType() << " " << proto->getName() << std::endl;
-
         return proto;
     }
 
     if (m_CurrentToken.token == tok_eq) {
         auto declaration = std::make_shared<DeclarationAST>(dType, dName);
-        std::cerr << "Found a variable definition: " << declaration->getName() << std::endl;
-
         std::string variableName = (scope.length() > 0) ?
             scope + "::" + declaration->getName() :
             declaration->getName();
 
         m_NameType[variableName] = declaration->getType();
-
-        std::cerr << "Insterting " << variableName << " " << declaration->getType() << std::endl;
 
         return parseVariableDefinition(declaration);
     }
@@ -175,15 +166,11 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
         return nullptr;
     }
 
-    std::cerr << "Found a variable declaration: " << dType << " " << dName << std::endl;
-
-
     std::string variableName = (scope.length() > 0) ?
         scope + "::" + dName :
         dName;
 
     m_NameType[variableName] = dType;
-    std::cerr << "Insterting " << variableName << " " << dType << std::endl;
 
     return std::make_shared<DeclarationAST>(dType, dName);
 }
@@ -199,9 +186,6 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
 
     if (m_CurrentToken.token != tok_type) {
         if (m_CurrentToken.token == tok_pclose) {
-
-            std::cerr << "Found prototype: "
-                << declarationAST->getType() << " " << declarationAST->getName() << std::endl;
             return std::make_shared<PrototypeAST>(std::move(declarationAST), std::move(args));
         } else {
             std::cerr << "Parameters must be typed!" << std::endl;
@@ -227,8 +211,6 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
     std::string argScopedName = declarationAST->getName() + "::" + argName;
 
     m_NameType[argScopedName] = argType;
-    std::cerr << "Inserting " << argScopedName << " " << argType << std::endl;
-
     m_CurrentToken = waitForToken();
 
     while (m_CurrentToken.token == tok_comma) {
@@ -258,8 +240,6 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         std::string argScopedName = declarationAST->getName() + "::" + argName;
 
         m_NameType[argScopedName] = argType;
-        std::cerr << "Inserting " << argScopedName << " " << argType << std::endl;
-
         args.push_back(std::move(loopArg));
 
         m_CurrentToken = waitForToken();
@@ -274,8 +254,6 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
     auto proto = std::make_shared<PrototypeAST>(declarationAST, args);
 
     m_NameType[proto->getName()] = proto->getType();
-    std::cerr << "Inserting " << proto->getName() << " " << proto->getType() << std::endl;
-
     return std::move(proto);
 }
 
@@ -350,8 +328,6 @@ std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
 std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
     std::string identifier = m_CurrentToken.identifier;
 
-    std::cerr << "Parsing identifier : " << identifier << std::endl;
-
     m_CurrentToken = waitForToken();
 
     std::string scopedId = (scope.length() > 0) ?
@@ -399,9 +375,6 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
         }
 
     }
-
-
-    std::cerr << "Found a function call: " << identifier << " with " << args.size() << " args" <<std::endl;
 
     return std::make_shared<CallFunctionExprAST>(type, identifier, std::move(args));
 }
