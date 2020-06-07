@@ -22,7 +22,10 @@ public:
 };
 
 class EOFExprAST : public ExprAST {
-
+public:
+    EOFExprAST()
+        : ExprAST("void")
+    {}
 };
 
 class VariableExprAST : public ExprAST {

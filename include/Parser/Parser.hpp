@@ -5,6 +5,7 @@
 #pragma once
 #include <condition_variable>
 #include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <deque>
@@ -27,6 +28,8 @@ private:
 
     int m_AnonFuncNum = 0;
 
+    std::map<std::string, std::string> m_NameType;
+
 public:
     Parser(std::shared_ptr<Lexer> lexer);
 
@@ -40,21 +43,21 @@ public:
 
     void parse();
     std::shared_ptr<ExprAST> parseNext();
-    std::shared_ptr<ExprAST> parsePrimaryExpr();
+    std::shared_ptr<ExprAST> parsePrimaryExpr(const std::string &scope = "");
     std::shared_ptr<ExprAST> parseTopLevelExpr();
-    std::shared_ptr<DeclarationAST> parseDeclaration();
+    std::shared_ptr<DeclarationAST> parseDeclaration(const std::string &scope = "");
     void parseInclude();
     std::shared_ptr<PrototypeAST> parsePrototype(std::shared_ptr<DeclarationAST> declarationAST);
     std::shared_ptr<VariableDefinitionAST> parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST);
     std::shared_ptr<FunctionDefinitionAST> parseDefinition(std::shared_ptr<PrototypeAST> proto);
-    std::shared_ptr<ExprAST> parseIdentifier();
+    std::shared_ptr<ExprAST> parseIdentifier(const std::string &scope = "");
     std::shared_ptr<IntExprAST> parseIntExpr();
     std::shared_ptr<FloatExprAST> parseFloatExpr();
-    std::shared_ptr<ExprAST> parseParensExpr();
+    std::shared_ptr<ExprAST> parseParensExpr(const std::string &scope = "");
 
-    std::shared_ptr<ExprAST> parseExpression();
+    std::shared_ptr<ExprAST> parseExpression(const std::string &scope = "");
 
-    std::shared_ptr<ExprAST> parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS);
+    std::shared_ptr<ExprAST> parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS, const std::string &scope = "");
 };
 
 

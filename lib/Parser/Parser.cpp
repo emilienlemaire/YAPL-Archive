@@ -14,8 +14,8 @@
 
 #include "AST/DeclarationAST.hpp"
 #include "AST/ExprAST.hpp"
-#include "helper/helper.hpp"
 #include "Parser/Parser.hpp"
+#include "helper/helper.hpp"
 #include "utils/token.hpp"
 
 Parser::Parser(std::shared_ptr<Lexer> lexer)
@@ -112,7 +112,7 @@ std::shared_ptr<ExprAST> Parser::parseNext() {
     }
 }
 
-std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
+std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scope) {
     std::string dType = m_CurrentToken.identifier;
     std::string dName;
 
@@ -158,6 +158,15 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
     if (m_CurrentToken.token == tok_eq) {
         auto declaration = std::make_shared<DeclarationAST>(dType, dName);
         std::cerr << "Found a variable definition: " << declaration->getName() << std::endl;
+
+        std::string variableName = (scope.length() > 0) ?
+            scope + "::" + declaration->getName() :
+            declaration->getName();
+
+        m_NameType[variableName] = declaration->getType();
+
+        std::cerr << "Insterting " << variableName << " " << declaration->getType() << std::endl;
+
         return parseVariableDefinition(declaration);
     }
 
@@ -167,6 +176,14 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration() {
     }
 
     std::cerr << "Found a variable declaration: " << dType << " " << dName << std::endl;
+
+
+    std::string variableName = (scope.length() > 0) ?
+        scope + "::" + dName :
+        dName;
+
+    m_NameType[variableName] = dType;
+    std::cerr << "Insterting " << variableName << " " << dType << std::endl;
 
     return std::make_shared<DeclarationAST>(dType, dName);
 }
@@ -205,6 +222,13 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
     auto fstArg = std::make_shared<DeclarationAST>(argType, argName);
     args.push_back(std::move(fstArg));
 
+    auto loopArg = std::make_shared<DeclarationAST>(argType, argName);
+
+    std::string argScopedName = declarationAST->getName() + "::" + argName;
+
+    m_NameType[argScopedName] = argType;
+    std::cerr << "Inserting " << argScopedName << " " << argType << std::endl;
+
     m_CurrentToken = waitForToken();
 
     while (m_CurrentToken.token == tok_comma) {
@@ -231,6 +255,10 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         }
 
         auto loopArg = std::make_shared<DeclarationAST>(argType, argName);
+        std::string argScopedName = declarationAST->getName() + "::" + argName;
+
+        m_NameType[argScopedName] = argType;
+        std::cerr << "Inserting " << argScopedName << " " << argType << std::endl;
 
         args.push_back(std::move(loopArg));
 
@@ -242,7 +270,11 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         return nullptr;
     }
 
+
     auto proto = std::make_shared<PrototypeAST>(declarationAST, args);
+
+    m_NameType[proto->getName()] = proto->getType();
+    std::cerr << "Inserting " << proto->getName() << " " << proto->getType() << std::endl;
 
     return std::move(proto);
 }
@@ -258,15 +290,15 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
             break;
 
         if (m_CurrentToken.token == tok_type)
-            blocks.push_back(std::move(parseDeclaration()));
+            blocks.push_back(std::move(parseDeclaration(proto->getName())));
         else
-            blocks.push_back(std::move(parseExpression()));
+            blocks.push_back(std::move(parseExpression(proto->getName())));
     }
 
 
     if (m_CurrentToken.token == tok_return) {
         m_CurrentToken = waitForToken();
-        auto expr = parseExpression();
+        auto expr = parseExpression(proto->getName());
 
         if (!expr) {
             std::cerr << "Expecting expression after 'return'!" << std::endl;
@@ -305,7 +337,7 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
 std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
     if (auto expr = parseExpression()) {
 
-        auto declaration = std::make_shared<DeclarationAST>("float", std::to_string(m_AnonFuncNum));
+        auto declaration = std::make_shared<DeclarationAST>(expr->getType(), std::to_string(m_AnonFuncNum));
         auto proto = std::make_shared<PrototypeAST>(std::move(declaration),
                                                     std::vector<std::shared_ptr<DeclarationAST>>());
 
@@ -315,15 +347,30 @@ std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
     return nullptr;
 }
 
-std::shared_ptr<ExprAST> Parser::parseIdentifier() {
+std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
     std::string identifier = m_CurrentToken.identifier;
 
     std::cerr << "Parsing identifier : " << identifier << std::endl;
 
     m_CurrentToken = waitForToken();
 
-    if (m_CurrentToken.token != tok_popen)
-        return std::make_shared<VariableExprAST>(identifier);
+    std::string scopedId = (scope.length() > 0) ?
+        scope + "::" + identifier :
+        identifier;
+
+    auto it = m_NameType.find(scopedId);
+
+    if (it == m_NameType.end()) {
+        std::cerr << "Variable or function called but not declared: " << scopedId << std::endl;
+        return nullptr;
+    }
+
+    std::string type = it->second;
+
+    if (m_CurrentToken.token != tok_popen){
+
+        return std::make_shared<VariableExprAST>(type, identifier);
+    }
 
     m_CurrentToken = waitForToken();
 
@@ -331,7 +378,7 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier() {
 
     if (m_CurrentToken.token != tok_pclose) {
         while (1) {
-            if (auto arg = parseExpression()) {
+            if (auto arg = parseExpression(scope)) {
                 args.push_back(std::move(arg));
             } else {
                 return nullptr;
@@ -356,7 +403,7 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier() {
 
     std::cerr << "Found a function call: " << identifier << " with " << args.size() << " args" <<std::endl;
 
-    return std::make_shared<CallFunctionExprAST>(identifier, std::move(args));
+    return std::make_shared<CallFunctionExprAST>(type, identifier, std::move(args));
 }
 
 std::shared_ptr<IntExprAST> Parser::parseIntExpr() {
@@ -371,9 +418,9 @@ std::shared_ptr<FloatExprAST> Parser::parseFloatExpr() {
     return std::make_shared<FloatExprAST>(val);
 }
 
-std::shared_ptr<ExprAST> Parser::parseParensExpr() {
+std::shared_ptr<ExprAST> Parser::parseParensExpr(const std::string &scope) {
     m_CurrentToken = waitForToken();
-    auto expr = parseExpression();
+    auto expr = parseExpression(scope);
     if (!expr)
         return nullptr;
 
@@ -386,29 +433,29 @@ std::shared_ptr<ExprAST> Parser::parseParensExpr() {
     return expr;
 }
 
-std::shared_ptr<ExprAST> Parser::parseExpression() {
-    auto LHS = parsePrimaryExpr();
+std::shared_ptr<ExprAST> Parser::parseExpression(const std::string &scope) {
+    auto LHS = parsePrimaryExpr(scope);
 
     if (!LHS)
         return nullptr;
 
-    return parseBinaryExpr(0, std::move(LHS));
+    return parseBinaryExpr(0, std::move(LHS), scope);
 }
 
-std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
+std::shared_ptr<ExprAST> Parser::parsePrimaryExpr(const std::string &scope) {
     while (m_CurrentToken.token == INT_MIN) {
         m_CurrentToken = waitForToken();
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     switch (m_CurrentToken.token) {
         case tok_identifier:
-            return parseIdentifier();
+            return parseIdentifier(scope);
         case tok_val_float:
             return parseFloatExpr();
         case tok_val_int:
             return parseIntExpr();
         case tok_popen:
-            return parseParensExpr();
+            return parseParensExpr(scope);
         default:
             std::cerr << "Unexpected token instead of expression : " << tokToString(m_CurrentToken.token) << std::endl;
             m_CurrentToken = waitForToken();
@@ -416,7 +463,7 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr() {
     }
 }
 
-std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS) {
+std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS, const std::string &scope) {
     while (true) {
         int tokPrec = getTokenPrecedence(m_CurrentToken.token);
         if (tokPrec < exprPrec) {
@@ -427,7 +474,7 @@ std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<E
 
         m_CurrentToken = waitForToken();
 
-        auto RHS = parsePrimaryExpr();
+        auto RHS = parsePrimaryExpr(scope);
 
         if (!RHS)
             return nullptr;
@@ -435,7 +482,7 @@ std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<E
         int nextPrec = getTokenPrecedence(m_CurrentToken.token);
 
         if (tokPrec < nextPrec) {
-            RHS = parseBinaryExpr(tokPrec + 1, std::move(RHS));
+            RHS = parseBinaryExpr(tokPrec + 1, std::move(RHS), scope);
 
             if (!RHS) {
                 return nullptr;

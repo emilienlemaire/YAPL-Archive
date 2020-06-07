@@ -13,7 +13,10 @@
 
 #include "AST/DeclarationAST.hpp"
 #include "AST/ExprAST.hpp"
+#include "llvm/IR/Type.h"
+#include "llvm/Support/raw_ostream.h"
 
+#include <_types/_uint32_t.h>
 #include <llvm/Support/TargetSelect.h>
 
 #include <IRGenerator/IRGenerator.hpp>
@@ -21,6 +24,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <sys/_types/_intptr_t.h>
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
@@ -65,11 +69,26 @@ void IRGenerator::generate() {
 
             auto exprSymbol = m_YAPLJIT->lookup(std::to_string(m_Parser.getAnonFuncNum())).get();
 
+            std::cerr << "Search complete" << std::endl;
+
             assert(exprSymbol && "Function not found");
 
-            double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
+            std::cerr << "Assert passed" << std::endl;
 
-            fprintf(stderr, "Evaluated to %f\n", FP());
+            auto type = topLevel->getType();
+
+            bool isFloat = type ? true : false;
+
+            if (isFloat) {
+                std::cerr << "It is a float" << std::endl;
+                double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
+
+                fprintf(stderr, "Evaluated to %f\n", FP());
+            } else {
+                std::cerr << "It is a int" << std::endl;
+                int (*FP)() = (int(*)())(intptr_t)exprSymbol.getAddress();
+                fprintf(stderr, "Evaluated to %d\n", FP());
+            }
 
             m_Parser.incrementAnonFuncNum();
         }
@@ -90,7 +109,7 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
     if (auto parsedNumber = std::dynamic_pointer_cast<NumberExprAST>(parsedExpression)) {
         if (std::dynamic_pointer_cast<IntExprAST>(parsedNumber)) {
             int intVal = parsedNumber->getValue().ival;
-            return llvm::ConstantInt::get(m_Context, llvm::APInt(sizeof(int), intVal));
+            return llvm::ConstantInt::get(m_Context, llvm::APInt(32, intVal));
         }
         if (std::dynamic_pointer_cast<FloatExprAST>(parsedNumber)) {
             double floatVal = parsedNumber->getValue().fval;
@@ -145,20 +164,38 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
         R->mutateType(L->getType());
     }
 
-    switch (op) {
-        case '+':
-            return m_Builder->CreateFAdd(L, R, "addtmp");
-        case '-':
-            return m_Builder->CreateFSub(L, R, "subtmp");
-        case '*':
-            return m_Builder->CreateFMul(L, R, "multmp");
-        case '<':
-            L = m_Builder->CreateFCmpULT(L, R, "cmptmp");
-            return m_Builder->CreateUIToFP(L, llvm::Type::getDoubleTy(m_Context), "booltmp");
-        default:
-            std::cerr << "Invalid binary operator" << std::endl;
-            return nullptr;
+
+    if (parsedBinaryOpExpr->getType() == "float") {
+        switch (op) {
+            case '+':
+                return m_Builder->CreateFAdd(L, R, "addtmp");
+            case '-':
+                return m_Builder->CreateFSub(L, R, "subtmp");
+            case '*':
+                return m_Builder->CreateFMul(L, R, "multmp");
+            case '<':
+                L = m_Builder->CreateFCmpULT(L, R, "cmptmp");
+                return m_Builder->CreateUIToFP(L, llvm::Type::getDoubleTy(m_Context), "booltmp");
+            default:
+                std::cerr << "Invalid binary operator" << std::endl;
+                return nullptr;
+        }
+    } else {
+        switch (op) {
+            case '+':
+                return m_Builder->CreateAdd(L, R, "addtmp");
+            case '-':
+                return m_Builder->CreateSub(L, R, "subtmp");
+            case '*':
+                return m_Builder->CreateMul(L, R, "multmp");
+            case '<':
+                return m_Builder->CreateICmpULT(L, R, "cmptmp");
+            default:
+                std::cerr << "Invalid binary operator" << std::endl;
+                return nullptr;
+        }
     }
+
 }
 
 llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprAST> parsedFunctionCall) {
