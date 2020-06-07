@@ -11,23 +11,19 @@
  *
  * */
 
-#include "AST/DeclarationAST.hpp"
-#include "AST/ExprAST.hpp"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/raw_ostream.h"
 
-#include <_types/_uint32_t.h>
-#include <iostream>
+#include "IRGenerator/IRGenerator.hpp"
+
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Type.h>
+#include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/TargetSelect.h>
 
-#include <IRGenerator/IRGenerator.hpp>
 #include <cassert>
 #include <cstdio>
+#include <iostream>
 #include <memory>
 #include <string>
-#include <sys/_types/_intptr_t.h>
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
@@ -59,15 +55,16 @@ void IRGenerator::generate() {
             fprintf(stderr, "Read declaration:\n");
             if (auto *declaration = generateDeclaration(std::move(parsedExpr))) {
                 declaration->print(llvm::errs());
+                m_YAPLJIT->addModule(std::move(m_Module));
+                reloadModuleAndPassManger();
             }
         } else if (expr) {
             std::cerr << "Read top level:\n";
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
-            topLevel->getType()->getPointerElementType()->print(llvm::errs());
-            bool isFloat = false;
             auto type = topLevel->getType()->getPointerElementType();
 
+            bool isFloat = false;
             if (auto fType = static_cast<llvm::FunctionType*>(type)) {
                 isFloat = fType->getReturnType()->isDoubleTy();
             }
@@ -80,12 +77,10 @@ void IRGenerator::generate() {
 
             assert(exprSymbol && "Function not found");
             if (isFloat) {
-                std::cerr << "It is a float" << std::endl;
                 double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
 
                 fprintf(stderr, "Evaluated to %f\n", FP());
             } else {
-                std::cerr << "It is a int" << std::endl;
                 int (*FP)() = (int(*)())(intptr_t)exprSymbol.getAddress();
                 fprintf(stderr, "Evaluated to %d\n", FP());
             }
@@ -199,7 +194,7 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
 }
 
 llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprAST> parsedFunctionCall) {
-    llvm::Function *calleeFunction = m_Module->getFunction(parsedFunctionCall->getCallee());
+    llvm::Function *calleeFunction = getFunction(parsedFunctionCall->getCallee());
     if (!calleeFunction) {
         std::cerr << "Unknown function called" << std::endl;
         return nullptr;
@@ -278,12 +273,11 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
 }
 
 llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<FunctionDefinitionAST> parsedFunctionDefinition) {
-    auto proto = parsedFunctionDefinition->getPrototype();
-    llvm::Function *function = m_Module->getFunction(proto->getName());
+    auto &proto = *parsedFunctionDefinition->getPrototype().get();
+    auto p = parsedFunctionDefinition->getPrototype();
+    m_FunctionDefs[p->getName()] = std::move(p);
 
-    if (!function) {
-        function = generatePrototype(proto);
-    }
+    llvm::Function *function = getFunction(proto.getName());
 
     if (!function) {
         return nullptr;
@@ -326,3 +320,16 @@ void IRGenerator::reloadModuleAndPassManger() {
     m_PassManager = std::make_unique<PassManager>(m_Module.get());
 }
 
+llvm::Function *IRGenerator::getFunction(const std::string &name) {
+    if (auto *func = m_Module->getFunction(name)) {
+        return func;
+    }
+
+    auto funcDef = m_FunctionDefs.find(name);
+
+    if (funcDef != m_FunctionDefs.end()) {
+        return generatePrototype(funcDef->second);
+    }
+
+    return nullptr;
+}

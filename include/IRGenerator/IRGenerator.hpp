@@ -16,6 +16,7 @@
 #include <llvm/IR/Verifier.h>
 #include <memory>
 
+#include "AST/DeclarationAST.hpp"
 #include "Parser/Parser.hpp"
 #include "PassManager/PassManager.hpp"
 #include "YAPLJIT/YAPLJIT.hpp"
@@ -33,6 +34,8 @@ private:
     Parser m_Parser;
 
     std::map<std::string, llvm::Value *> m_NamedValues;
+    std::map<std::string, std::shared_ptr<PrototypeAST>> m_FunctionDefs;
+
 public:
     IRGenerator(const char *argv);
 
@@ -47,6 +50,7 @@ public:
     llvm::Function *generateDeclaration(std::shared_ptr<DeclarationAST> parsedDeclaration);
     llvm::Function *generatePrototype(std::shared_ptr<PrototypeAST> parsedPrototype);
     llvm::Function *generateFunctionDefinition(std::shared_ptr<FunctionDefinitionAST> parsedFunctionDefinition);
+    llvm::Function *getFunction(const std::string &name);
 
     std::unique_ptr<llvm::Module> getModule() { return std::move(m_Module); }
 
