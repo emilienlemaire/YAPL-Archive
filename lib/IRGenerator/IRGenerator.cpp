@@ -13,6 +13,7 @@
 
 
 #include "IRGenerator/IRGenerator.hpp"
+#include "llvm/ADT/Twine.h"
 
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
@@ -38,8 +39,6 @@ IRGenerator::IRGenerator(const char * argv)
     m_YAPLJIT = std::move(YAPLJIT::Create().get());
 
     m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
-
-    m_PassManager = std::make_unique<PassManager>(m_Module.get());
 }
 
 void IRGenerator::generate() {
@@ -73,7 +72,9 @@ void IRGenerator::generate() {
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
             reloadModuleAndPassManger();
 
-            auto exprSymbol = m_YAPLJIT->lookup(std::to_string(m_Parser.getAnonFuncNum())).get();
+            auto exprSymbol = m_YAPLJIT->lookup(("__anon_expr" + llvm::Twine(m_Parser.getAnonFuncNum())).str()).get();
+
+            m_Parser.incrementAnonFuncNum();
 
             assert(exprSymbol && "Function not found");
             if (isFloat) {
@@ -84,8 +85,6 @@ void IRGenerator::generate() {
                 int (*FP)() = (int(*)())(intptr_t)exprSymbol.getAddress();
                 fprintf(stderr, "Evaluated to %d\n", FP());
             }
-
-            m_Parser.incrementAnonFuncNum();
         }
 
         if (!m_Lexer->hasFile()) {
@@ -304,8 +303,6 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
 
         llvm::verifyFunction(*function);
 
-        m_PassManager->run(*function);
-
         return function;
     }
 
@@ -317,7 +314,6 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
 void IRGenerator::reloadModuleAndPassManger() {
     m_Module = std::make_unique<llvm::Module>("JIT", m_Context);
     m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
-    m_PassManager = std::make_unique<PassManager>(m_Module.get());
 }
 
 llvm::Function *IRGenerator::getFunction(const std::string &name) {

@@ -18,7 +18,6 @@
 
 #include "AST/DeclarationAST.hpp"
 #include "Parser/Parser.hpp"
-#include "PassManager/PassManager.hpp"
 #include "YAPLJIT/YAPLJIT.hpp"
 
 class IRGenerator {
@@ -28,8 +27,6 @@ private:
     std::unique_ptr<llvm::Module> m_Module;
 
     std::unique_ptr<YAPLJIT> m_YAPLJIT;
-
-    std::unique_ptr<PassManager> m_PassManager;
     std::shared_ptr<Lexer> m_Lexer;
     Parser m_Parser;
 

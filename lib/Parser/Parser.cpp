@@ -17,6 +17,7 @@
 #include "Parser/Parser.hpp"
 #include "helper/helper.hpp"
 #include "utils/token.hpp"
+#include "llvm/ADT/Twine.h"
 
 Parser::Parser(std::shared_ptr<Lexer> lexer)
         : m_Lexer(std::move(lexer))
@@ -315,7 +316,7 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
 std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
     if (auto expr = parseExpression()) {
 
-        auto declaration = std::make_shared<DeclarationAST>(expr->getType(), std::to_string(m_AnonFuncNum));
+        auto declaration = std::make_shared<DeclarationAST>(expr->getType(), ("__anon_expr" + llvm::Twine(m_AnonFuncNum)).str());
         auto proto = std::make_shared<PrototypeAST>(std::move(declaration),
                                                     std::vector<std::shared_ptr<DeclarationAST>>());
 
