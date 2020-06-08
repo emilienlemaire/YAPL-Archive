@@ -15,6 +15,7 @@
 #include "IRGenerator/IRGenerator.hpp"
 #include "AST/DeclarationAST.hpp"
 #include "llvm/ADT/Twine.h"
+#include "llvm/IR/Instructions.h"
 
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
@@ -156,16 +157,19 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
     if(!L || !R)
         return nullptr;
 
-    if (L->getType() != R->getType()) {
+    if (L->getType()->getTypeID() != R->getType()->getTypeID()) {
+        std::cerr << "Casting ";
         if (R->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
-            R = m_Builder->CreateIntCast(R, llvm::Type::getDoubleTy(m_Context), false, "casttmp");
+            std::cerr << "from int to double." << std::endl;
+            R = m_Builder->CreateSIToFP(R, llvm::Type::getDoubleTy(m_Context), "casttmp");
         } else {
-            R = m_Builder->CreateFPCast(R, llvm::Type::getInt32Ty(m_Context), "casttmp");
+            std::cerr << "from int to double." << std::endl;
+            R = m_Builder->CreateFPToSI(R, llvm::Type::getInt32Ty(m_Context), "casttmp");
         }
     }
 
 
-    if (parsedBinaryOpExpr->getType() == "float") {
+    if (parsedBinaryOpExpr->getType() == "float" || parsedBinaryOpExpr->getType() == "double") {
         switch (op) {
             case '+':
                 return m_Builder->CreateFAdd(L, R, "addtmp");
@@ -223,8 +227,8 @@ llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprA
     for (unsigned i = 0; i < callArgs.size(); i++) {
         if (callArgs[i]->getType()->getTypeID() != calleeFunction->getArg(i)->getType()->getTypeID()) {
             callArgs[i] = (callArgs[i]->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) ?
-                callArgs[i] = m_Builder->CreateIntCast(callArgs[i], llvm::Type::getDoubleTy(m_Context), false, "casttmp") :
-                callArgs[i] = m_Builder->CreateFPCast(callArgs[i], llvm::Type::getInt32Ty(m_Context), "casttmp");
+                callArgs[i] = m_Builder->CreateSIToFP(callArgs[i], llvm::Type::getDoubleTy(m_Context), "casttmp") :
+                callArgs[i] = m_Builder->CreateFPToSI(callArgs[i], llvm::Type::getInt32Ty(m_Context), "casttmp");
         }
     }
 
@@ -254,7 +258,7 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
     for (const auto &param : params) {
         if (param->getType() == "int") {
             paramTypes.push_back(llvm::Type::getInt32Ty(m_Context));
-        } else if (param->getType() == "float") {
+        } else if (param->getType() == "float" || param->getType() == "double") {
             paramTypes.push_back(llvm::Type::getDoubleTy(m_Context));
         } else {
             std::cerr << "Unknown param type: " << param->getType() << " param ignored!" << std::endl;
@@ -265,7 +269,7 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
 
     if (parsedPrototype->getType() == "int") {
         functionType = llvm::FunctionType::get(llvm::Type::getInt32Ty(m_Context), paramTypes, false);
-    } else if (parsedPrototype->getType() == "float") {
+    } else if (parsedPrototype->getType() == "float" || parsedPrototype->getType() == "double") {
         functionType = llvm::FunctionType::get(llvm::Type::getDoubleTy(m_Context), paramTypes, false);
     } else {
         std::cerr << "Unknown function type: " << parsedPrototype->getType() << " function ignored!" << std::endl;
@@ -313,9 +317,9 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
     if (llvm::Value *retValue = generateTopLevel(returnExpr)) {
         if (retValue->getType() != function->getReturnType()) {
             if (retValue->getValueID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
-                retValue = m_Builder->CreateIntCast(retValue, llvm::Type::getDoubleTy(m_Context), true, "casttmp");
+                retValue = m_Builder->CreateSIToFP(retValue, llvm::Type::getDoubleTy(m_Context), "casttmp");
             } else {
-                retValue = m_Builder->CreateFPCast(retValue, llvm::Type::getInt32Ty(m_Context), "casttmp");
+                retValue = m_Builder->CreateFPToSI(retValue, llvm::Type::getInt32Ty(m_Context), "casttmp");
             }
         }
 

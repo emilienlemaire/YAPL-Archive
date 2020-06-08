@@ -473,7 +473,7 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
     std::shared_ptr<NumberExprAST> value;
 
     if (m_CurrentToken.token == tok_val_int) {
-        if (declarationAST->getType() == "float") {
+        if (declarationAST->getType() == "float" || declarationAST->getType() == "double") {
             std::cerr << "Expected a float got an int, cast not implemented yet!!" << std::endl;
             return nullptr;
         }

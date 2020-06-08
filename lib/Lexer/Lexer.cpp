@@ -91,7 +91,7 @@ Token Lexer::getToken() {
             return Token{ token::tok_return };
         }
 
-        if (m_Identifier == "float") {
+        if (m_Identifier == "float" || m_Identifier == "double") {
             return Token{ token::tok_type, m_Identifier };
         }
 
