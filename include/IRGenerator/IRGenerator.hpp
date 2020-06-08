@@ -50,6 +50,7 @@ public:
     llvm::Function *getFunction(const std::string &name);
 
     std::unique_ptr<llvm::Module> getModule() { return std::move(m_Module); }
+    std::unique_ptr<llvm::Module> generateAndTakeOwnership(FunctionDefinitionAST funcAST, const std::string &suffix);
 
     void reloadModuleAndPassManger();
 };

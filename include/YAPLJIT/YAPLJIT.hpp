@@ -1,9 +1,9 @@
 #pragma once
 
-#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
 #include "llvm/Support/Error.h"
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h>
 #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
 #include <llvm/ExecutionEngine/Orc/Core.h>
 #include <llvm/ExecutionEngine/Orc/ExecutionUtils.h>
@@ -20,6 +20,7 @@
 #include <llvm/Transforms/Scalar/GVN.h>
 
 #include <memory>
+#include <set>
 #include <type_traits>
 
 class YAPLJIT {
@@ -28,6 +29,11 @@ private:
     llvm::orc::RTDyldObjectLinkingLayer m_ObjectLayer;
     llvm::orc::IRCompileLayer m_CompileLayer;
     llvm::orc::IRTransformLayer m_OptimizeLayer;
+    std::unique_ptr<llvm::orc::LazyCallThroughManager> m_CallThroughManager;
+    llvm::orc::CompileOnDemandLayer m_CODLayer;
+
+    std::unique_ptr<llvm::orc::JITCompileCallbackManager> m_CompileCallbackManager;
+
 
     llvm::DataLayout m_DataLayout;
     llvm::orc::MangleAndInterner m_Mangle;
@@ -52,6 +58,21 @@ public:
                 m_ExecutionSession,
                 m_CompileLayer,
                 optimizeModule
+            ),
+        m_CallThroughManager(std::move(
+                    llvm::orc::createLocalLazyCallThroughManager(
+                        targetMachineBuilder.getTargetTriple(),
+                        m_ExecutionSession,
+                        llvm::pointerToJITTargetAddress(exitOnLazyCallThroughFailure)
+                    ).get()
+                )),
+        m_CODLayer(
+                m_ExecutionSession,
+                m_OptimizeLayer,
+                *m_CallThroughManager,
+                llvm::orc::createLocalIndirectStubsManagerBuilder(
+                    targetMachineBuilder.getTargetTriple()
+                )
             ),
         m_DataLayout(std::move(dataLayout)),
         m_Mangle(m_ExecutionSession, this->m_DataLayout),
@@ -88,7 +109,7 @@ public:
     llvm::LLVMContext &getContext() { return *m_TSContext.getContext(); }
 
     llvm::Error addModule(std::unique_ptr<llvm::Module> module) {
-        return m_OptimizeLayer.add( m_MainJITDylib, llvm::orc::ThreadSafeModule(
+        return m_CODLayer.add( m_MainJITDylib, llvm::orc::ThreadSafeModule(
                     std::move(module),
                     m_TSContext
                     )
@@ -119,5 +140,10 @@ private:
             );
 
         return std::move(tsModule);
+    }
+
+    static void exitOnLazyCallThroughFailure() {
+        llvm::errs() << "Compilation failed. Aborting.\n";
+        exit(EXIT_FAILURE);
     }
 };

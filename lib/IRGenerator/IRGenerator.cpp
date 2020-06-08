@@ -13,6 +13,7 @@
 
 
 #include "IRGenerator/IRGenerator.hpp"
+#include "AST/DeclarationAST.hpp"
 #include "llvm/ADT/Twine.h"
 
 #include <llvm/IR/DerivedTypes.h>
@@ -61,6 +62,7 @@ void IRGenerator::generate() {
             std::cerr << "Read top level:\n";
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
+            topLevel->getType()->print(llvm::errs(), true);
             auto type = topLevel->getType()->getPointerElementType();
 
             bool isFloat = false;
@@ -155,7 +157,11 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
         return nullptr;
 
     if (L->getType() != R->getType()) {
-        R->mutateType(L->getType());
+        if (R->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
+            R = m_Builder->CreateIntCast(R, llvm::Type::getDoubleTy(m_Context), false, "casttmp");
+        } else {
+            R = m_Builder->CreateFPCast(R, llvm::Type::getInt32Ty(m_Context), "casttmp");
+        }
     }
 
 
@@ -213,6 +219,15 @@ llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprA
             return nullptr;
         }
     }
+
+    for (unsigned i = 0; i < callArgs.size(); i++) {
+        if (callArgs[i]->getType()->getTypeID() != calleeFunction->getArg(i)->getType()->getTypeID()) {
+            callArgs[i] = (callArgs[i]->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) ?
+                callArgs[i] = m_Builder->CreateIntCast(callArgs[i], llvm::Type::getDoubleTy(m_Context), false, "casttmp") :
+                callArgs[i] = m_Builder->CreateFPCast(callArgs[i], llvm::Type::getInt32Ty(m_Context), "casttmp");
+        }
+    }
+
     return m_Builder->CreateCall(calleeFunction, callArgs, "calltmp");
 }
 
@@ -296,8 +311,13 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
     }
     auto returnExpr = parsedFunctionDefinition->getReturnExpr();
     if (llvm::Value *retValue = generateTopLevel(returnExpr)) {
-        if (retValue->getType() != function->getReturnType())
-            retValue->mutateType(function->getReturnType());
+        if (retValue->getType() != function->getReturnType()) {
+            if (retValue->getValueID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
+                retValue = m_Builder->CreateIntCast(retValue, llvm::Type::getDoubleTy(m_Context), true, "casttmp");
+            } else {
+                retValue = m_Builder->CreateFPCast(retValue, llvm::Type::getInt32Ty(m_Context), "casttmp");
+            }
+        }
 
         m_Builder->CreateRet(retValue);
 
@@ -328,4 +348,20 @@ llvm::Function *IRGenerator::getFunction(const std::string &name) {
     }
 
     return nullptr;
+}
+
+std::unique_ptr<llvm::Module> IRGenerator::generateAndTakeOwnership(FunctionDefinitionAST funcAST,
+        const std::string &suffix) {
+    if (auto func = generateFunctionDefinition(std::make_shared<FunctionDefinitionAST>(funcAST))) {
+        func->setName(func->getName() + suffix);
+
+        auto module = std::move(m_Module);
+
+        reloadModuleAndPassManger();
+
+        return module;
+    } else {
+        std::cerr << "Couldn't compile lazily JOT'd function" << std::endl;
+        return nullptr;
+    }
 }
