@@ -57,7 +57,7 @@ void IRGenerator::generate() {
             fprintf(stderr, "Read declaration:\n");
             if (auto *declaration = generateDeclaration(parsedExpr)) {
                 declaration->print(llvm::errs());
-                m_YAPLJIT->addModule(std::move(m_Module));
+                auto H = m_YAPLJIT->addModule(std::move(m_Module));
                 initializeModule();
             }
         } else if (expr) {
@@ -75,7 +75,9 @@ void IRGenerator::generate() {
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
             initializeModule();
 
-            auto exprSymbol = m_YAPLJIT->lookup(("__anon_expr" + llvm::Twine(m_Parser.getAnonFuncNum())).str()).get();
+            auto exprSymbol = m_YAPLJIT->lookup(
+                    ("__anon_expr" + llvm::Twine(m_Parser.getAnonFuncNum())).str())
+                .get();
 
             m_Parser.incrementAnonFuncNum();
 
@@ -202,7 +204,8 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
 
 }
 
-llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprAST> parsedFunctionCall) {
+llvm::Value *IRGenerator::generateFunctionCall(
+        std::shared_ptr<CallFunctionExprAST> parsedFunctionCall) {
     llvm::Function *calleeFunction = getFunction(parsedFunctionCall->getCallee());
     if (!calleeFunction) {
         std::cerr << "Unknown function called" << std::endl;
@@ -225,10 +228,15 @@ llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprA
     }
 
     for (unsigned i = 0; i < callArgs.size(); i++) {
-        if (callArgs[i]->getType()->getTypeID() != calleeFunction->getArg(i)->getType()->getTypeID()) {
-            callArgs[i] = (callArgs[i]->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) ?
-                callArgs[i] = m_Builder->CreateSIToFP(callArgs[i], llvm::Type::getDoubleTy(m_Context), "casttmp") :
-                callArgs[i] = m_Builder->CreateFPToSI(callArgs[i], llvm::Type::getInt32Ty(m_Context), "casttmp");
+        if (callArgs[i]->getType()->getTypeID() !=
+                calleeFunction->getArg(i)->getType()->getTypeID()) {
+            callArgs[i] =
+                (callArgs[i]->getType()->getTypeID() ==
+                 llvm::Type::getInt32Ty(m_Context)->getTypeID()) ?
+                callArgs[i] =
+                    m_Builder->CreateSIToFP(callArgs[i], llvm::Type::getDoubleTy(m_Context), "casttmp") :
+                callArgs[i] =
+                    m_Builder->CreateFPToSI(callArgs[i], llvm::Type::getInt32Ty(m_Context), "casttmp");
         }
     }
 
@@ -240,11 +248,13 @@ llvm::Value *IRGenerator::generateFunctionCall(std::shared_ptr<CallFunctionExprA
 
 llvm::Function *IRGenerator::generateDeclaration(std::shared_ptr<DeclarationAST> parsedDeclaration) {
 
-    if (auto parsedDefinition = std::dynamic_pointer_cast<FunctionDefinitionAST>(parsedDeclaration)) {
+    if (auto parsedDefinition =
+            std::dynamic_pointer_cast<FunctionDefinitionAST>(parsedDeclaration)) {
         return generateFunctionDefinition(std::move(parsedDefinition));
     }
 
-    if (auto parsedProto = std::dynamic_pointer_cast<PrototypeAST>(parsedDeclaration)) {
+    if (auto parsedProto =
+            std::dynamic_pointer_cast<PrototypeAST>(parsedDeclaration)) {
         return generatePrototype(std::move(parsedProto));
     }
 
@@ -268,11 +278,22 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
     llvm::FunctionType * functionType;
 
     if (parsedPrototype->getType() == "int") {
-        functionType = llvm::FunctionType::get(llvm::Type::getInt32Ty(m_Context), paramTypes, false);
+        functionType = llvm::FunctionType::get(
+                llvm::Type::getInt32Ty(m_Context),
+                paramTypes,
+                false);
+
     } else if (parsedPrototype->getType() == "float" || parsedPrototype->getType() == "double") {
-        functionType = llvm::FunctionType::get(llvm::Type::getDoubleTy(m_Context), paramTypes, false);
+        functionType = llvm::FunctionType::get(
+                llvm::Type::getDoubleTy(m_Context),
+                paramTypes,
+                false);
+
     } else {
-        std::cerr << "Unknown function type: " << parsedPrototype->getType() << " function ignored!" << std::endl;
+        std::cerr << "Unknown function type: "<<
+            parsedPrototype->getType() <<
+            " function ignored!" <<
+            std::endl;
         return nullptr;
     }
 
@@ -317,9 +338,11 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
     if (llvm::Value *retValue = generateTopLevel(returnExpr)) {
         if (retValue->getType() != function->getReturnType()) {
             if (retValue->getValueID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
-                retValue = m_Builder->CreateSIToFP(retValue, llvm::Type::getDoubleTy(m_Context), "casttmp");
+                retValue = m_Builder
+                    ->CreateSIToFP(retValue, llvm::Type::getDoubleTy(m_Context), "casttmp");
             } else {
-                retValue = m_Builder->CreateFPToSI(retValue, llvm::Type::getInt32Ty(m_Context), "casttmp");
+                retValue = m_Builder
+                    ->CreateFPToSI(retValue, llvm::Type::getInt32Ty(m_Context), "casttmp");
             }
         }
 
@@ -372,6 +395,4 @@ std::unique_ptr<llvm::Module> IRGenerator::generateAndTakeOwnership(FunctionDefi
     }
 }
 
-IRGenerator::~IRGenerator() {
-
-}
+IRGenerator::~IRGenerator() {}

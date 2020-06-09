@@ -1,4 +1,4 @@
-add_library(functionpass STATIC
+add_library(functionpass SHARED
     FunctionPass.cpp)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")

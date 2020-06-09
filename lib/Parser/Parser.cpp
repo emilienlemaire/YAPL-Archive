@@ -2,6 +2,8 @@
 // Created by Emilien Lemaire on 21/04/2020.
 //
 
+#include <llvm/ADT/Twine.h>
+
 #include <chrono>
 #include <climits>
 #include <future>
@@ -17,7 +19,6 @@
 #include "Parser/Parser.hpp"
 #include "helper/helper.hpp"
 #include "utils/token.hpp"
-#include "llvm/ADT/Twine.h"
 
 Parser::Parser(std::shared_ptr<Lexer> lexer)
         : m_Lexer(std::move(lexer))
@@ -115,7 +116,6 @@ std::shared_ptr<ExprAST> Parser::parseNext() {
 
 std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scope) {
     std::string dType = m_CurrentToken.identifier;
-    std::string dName;
 
     m_CurrentToken = waitForToken();
 
@@ -124,7 +124,7 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
         return nullptr;
     }
 
-    dName = m_CurrentToken.identifier;
+    std::string dName = m_CurrentToken.identifier;
 
     m_CurrentToken = waitForToken();
 
@@ -316,9 +316,13 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
 std::shared_ptr<ExprAST> Parser::parseTopLevelExpr() {
     if (auto expr = parseExpression()) {
 
-        auto declaration = std::make_shared<DeclarationAST>(expr->getType(), ("__anon_expr" + llvm::Twine(m_AnonFuncNum)).str());
-        auto proto = std::make_shared<PrototypeAST>(std::move(declaration),
-                                                    std::vector<std::shared_ptr<DeclarationAST>>());
+        auto declaration =
+            std::make_shared<DeclarationAST>(
+                    expr->getType(),
+                    ("__anon_expr" + llvm::Twine(m_AnonFuncNum)).str());
+        auto proto = std::make_shared<PrototypeAST>(
+                std::move(declaration),
+                std::vector<std::shared_ptr<DeclarationAST>>());
 
         return std::make_shared<AnonExprAst>(std::move(expr), std::move(proto));
     }
@@ -431,13 +435,17 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr(const std::string &scope) {
         case tok_popen:
             return parseParensExpr(scope);
         default:
-            std::cerr << "Unexpected token instead of expression : " << tokToString(m_CurrentToken.token) << std::endl;
+            std::cerr << "Unexpected token instead of expression : " <<
+                tokToString(m_CurrentToken.token) << std::endl;
             m_CurrentToken = waitForToken();
             return nullptr;
     }
 }
 
-std::shared_ptr<ExprAST> Parser::parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS, const std::string &scope) {
+std::shared_ptr<ExprAST> Parser::parseBinaryExpr(
+        int exprPrec,
+        std::shared_ptr<ExprAST> LHS,
+        const std::string &scope) {
     while (true) {
         int tokPrec = getTokenPrecedence(m_CurrentToken.token);
         if (tokPrec < exprPrec) {
@@ -478,7 +486,10 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
             return nullptr;
         }
         value = parseIntExpr();
-        return std::make_shared<VariableDefinitionAST>(declarationAST->getType(), declarationAST->getName(), value);
+        return std::make_shared<VariableDefinitionAST>(
+                declarationAST->getType(),
+                declarationAST->getName(),
+                value);
     }
 
     if (m_CurrentToken.token == tok_val_float) {
@@ -487,7 +498,10 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
             return nullptr;
         }
         value = parseFloatExpr();
-        return std::make_shared<VariableDefinitionAST>(declarationAST->getType(), declarationAST->getName(), value);
+        return std::make_shared<VariableDefinitionAST>(
+                declarationAST->getType(),
+                declarationAST->getName(),
+                value);
     }
 
     std::cerr << "Unexpected token: " << tokToString(m_CurrentToken.token) <<

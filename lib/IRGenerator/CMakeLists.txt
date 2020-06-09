@@ -1,4 +1,4 @@
-add_library(irgenerator STATIC
+add_library(irgenerator SHARED
         IRGenerator.cpp)
 
 target_link_directories(yapl PRIVATE "${CMAKE_SOURCE_DIR}/llvm-libs")

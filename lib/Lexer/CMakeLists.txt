@@ -1,2 +1,3 @@
-add_library(lexer STATIC
+add_library(lexer SHARED
         Lexer.cpp)
+
