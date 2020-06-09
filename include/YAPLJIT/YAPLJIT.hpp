@@ -1,7 +1,6 @@
 #pragma once
 
-#include "llvm/Support/Error.h"
-#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/STLExtras.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h>
 #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
@@ -15,13 +14,26 @@
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/raw_os_ostream.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 
+#include <cassert>
+#include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <set>
-#include <type_traits>
+#include <string>
+
+#include "IRGenerator/IRGenerator.hpp"
+#include "AST/ExprAST.hpp"
+#include "AST/DeclarationAST.hpp"
+#include "llvm/IR/Mangler.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 
 class YAPLJIT {
 private:
@@ -31,9 +43,6 @@ private:
     llvm::orc::IRTransformLayer m_OptimizeLayer;
     std::unique_ptr<llvm::orc::LazyCallThroughManager> m_CallThroughManager;
     llvm::orc::CompileOnDemandLayer m_CODLayer;
-
-    std::unique_ptr<llvm::orc::JITCompileCallbackManager> m_CompileCallbackManager;
-
 
     llvm::DataLayout m_DataLayout;
     llvm::orc::MangleAndInterner m_Mangle;
@@ -65,7 +74,8 @@ public:
                         m_ExecutionSession,
                         llvm::pointerToJITTargetAddress(exitOnLazyCallThroughFailure)
                     ).get()
-                )),
+                )
+            ),
         m_CODLayer(
                 m_ExecutionSession,
                 m_OptimizeLayer,
@@ -144,6 +154,11 @@ private:
 
     static void exitOnLazyCallThroughFailure() {
         llvm::errs() << "Compilation failed. Aborting.\n";
+        exit(EXIT_FAILURE);
+    }
+
+    static void exitOnCallbackManagerFailure() {
+        llvm::errs() << "Compile manager failed. Aborting.\n";
         exit(EXIT_FAILURE);
     }
 };
