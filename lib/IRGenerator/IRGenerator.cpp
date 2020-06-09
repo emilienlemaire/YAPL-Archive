@@ -11,11 +11,8 @@
  *
  * */
 
-#include "YAPLJIT/YAPLJIT.hpp"
-#include "IRGenerator/IRGenerator.hpp"
-#include "AST/DeclarationAST.hpp"
-#include "llvm/ADT/Twine.h"
 
+#include <llvm/ADT/Twine.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
 #include <llvm/Support/raw_ostream.h>
@@ -27,6 +24,10 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+
+#include "YAPLJIT/YAPLJIT.hpp"
+#include "IRGenerator/IRGenerator.hpp"
+#include "AST/DeclarationAST.hpp"
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
@@ -63,7 +64,6 @@ void IRGenerator::generate() {
             std::cerr << "Read top level:\n";
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
-            topLevel->getType()->print(llvm::errs(), true);
             auto type = topLevel->getType()->getPointerElementType();
 
             bool isFloat = false;

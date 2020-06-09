@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/CompileOnDemandLayer.h>
@@ -31,6 +32,7 @@
 #include "IRGenerator/IRGenerator.hpp"
 #include "AST/ExprAST.hpp"
 #include "AST/DeclarationAST.hpp"
+#include "Passes/FunctionPass.hpp"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -141,6 +143,7 @@ private:
                     functionPassManager->add(llvm::createReassociatePass());
                     functionPassManager->add(llvm::createGVNPass());
                     functionPassManager->add(llvm::createCFGSimplificationPass());
+                    functionPassManager->add(new FunctionPass());
                     functionPassManager->doInitialization();
 
                     for (auto &function: module) {
