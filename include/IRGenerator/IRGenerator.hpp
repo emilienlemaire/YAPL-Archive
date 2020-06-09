@@ -18,7 +18,8 @@
 
 #include "AST/DeclarationAST.hpp"
 #include "Parser/Parser.hpp"
-#include "YAPLJIT/YAPLJIT.hpp"
+
+class YAPLJIT;
 
 class IRGenerator {
 private:
@@ -36,7 +37,7 @@ private:
 public:
     IRGenerator(const char *argv);
 
-    ~IRGenerator() = default;
+    ~IRGenerator();
 
     void generate();
 
@@ -52,7 +53,7 @@ public:
     std::unique_ptr<llvm::Module> getModule() { return std::move(m_Module); }
     std::unique_ptr<llvm::Module> generateAndTakeOwnership(FunctionDefinitionAST funcAST, const std::string &suffix);
 
-    void reloadModuleAndPassManger();
+    void initializeModule();
 };
 
 

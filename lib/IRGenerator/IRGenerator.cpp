@@ -11,11 +11,10 @@
  *
  * */
 
-
+#include "YAPLJIT/YAPLJIT.hpp"
 #include "IRGenerator/IRGenerator.hpp"
 #include "AST/DeclarationAST.hpp"
 #include "llvm/ADT/Twine.h"
-#include "llvm/IR/Instructions.h"
 
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
@@ -27,6 +26,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
@@ -54,10 +54,10 @@ void IRGenerator::generate() {
 
         if (auto parsedExpr = std::dynamic_pointer_cast<DeclarationAST>(expr)) {
             fprintf(stderr, "Read declaration:\n");
-            if (auto *declaration = generateDeclaration(std::move(parsedExpr))) {
+            if (auto *declaration = generateDeclaration(parsedExpr)) {
                 declaration->print(llvm::errs());
                 m_YAPLJIT->addModule(std::move(m_Module));
-                reloadModuleAndPassManger();
+                initializeModule();
             }
         } else if (expr) {
             std::cerr << "Read top level:\n";
@@ -73,7 +73,7 @@ void IRGenerator::generate() {
 
             fprintf(stderr, "\n");
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
-            reloadModuleAndPassManger();
+            initializeModule();
 
             auto exprSymbol = m_YAPLJIT->lookup(("__anon_expr" + llvm::Twine(m_Parser.getAnonFuncNum())).str()).get();
 
@@ -291,11 +291,11 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
 }
 
 llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<FunctionDefinitionAST> parsedFunctionDefinition) {
-    auto &proto = *parsedFunctionDefinition->getPrototype().get();
+    std::string name = parsedFunctionDefinition->getName();
     auto p = parsedFunctionDefinition->getPrototype();
     m_FunctionDefs[p->getName()] = std::move(p);
 
-    llvm::Function *function = getFunction(proto.getName());
+    llvm::Function *function = getFunction(name);
 
     if (!function) {
         return nullptr;
@@ -335,7 +335,7 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
     return function;
 }
 
-void IRGenerator::reloadModuleAndPassManger() {
+void IRGenerator::initializeModule() {
     m_Module = std::make_unique<llvm::Module>("JIT", m_Context);
     m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
 }
@@ -351,6 +351,8 @@ llvm::Function *IRGenerator::getFunction(const std::string &name) {
         return generatePrototype(funcDef->second);
     }
 
+    std::cerr << "Function not found" << std::endl;
+
     return nullptr;
 }
 
@@ -361,11 +363,15 @@ std::unique_ptr<llvm::Module> IRGenerator::generateAndTakeOwnership(FunctionDefi
 
         auto module = std::move(m_Module);
 
-        reloadModuleAndPassManger();
+        initializeModule();
 
         return module;
     } else {
-        std::cerr << "Couldn't compile lazily JOT'd function" << std::endl;
+        std::cerr << "Couldn't compile lazily JIT'd function" << std::endl;
         return nullptr;
     }
+}
+
+IRGenerator::~IRGenerator() {
+
 }
