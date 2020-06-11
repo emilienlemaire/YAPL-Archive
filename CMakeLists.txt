@@ -20,6 +20,7 @@ find_package(LLVM REQUIRED CONFIG)
 
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/vendor)
 
 add_definitions(${LLVM_DEFINITIONS})
 
@@ -31,6 +32,7 @@ add_executable(
 llvm_map_components_to_libnames(llvm_libs core orcjit mcjit native)
 
 add_subdirectory(lib)
+add_subdirectory(vendor)
 
-target_link_libraries(yapl PRIVATE irgenerator)
+target_link_libraries(yapl PRIVATE irgenerator cpplogger)
 
