@@ -21,7 +21,7 @@
 #include "utils/token.hpp"
 
 Parser::Parser(std::shared_ptr<Lexer> lexer)
-        : m_Lexer(std::move(lexer))
+        : m_Lexer(std::move(lexer)), m_Logger(CppLogger::Level::Trace, "Parser", true)
 {
 
     std::future<void> stopIOFuture = m_StopIOThread.get_future();
@@ -36,6 +36,13 @@ Parser::Parser(std::shared_ptr<Lexer> lexer)
         }
 
     }, std::move(stopIOFuture));
+
+    CppLogger::Format parserFormat = CppLogger::Format({
+            CppLogger::FormatAttribute::Name,
+            CppLogger::FormatAttribute::Message
+            });
+
+    m_Logger.setFormat(parserFormat);
 
     m_CurrentToken = getNextToken();
 }
@@ -120,7 +127,7 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
     m_CurrentToken = waitForToken();
 
     if (m_CurrentToken.token != tok_identifier) {
-        std::cerr << "The type must be followed by an identifier!" << std::endl;
+        m_Logger.printError("A type must be follwed by an identifier!");
         return nullptr;
     }
 
@@ -144,7 +151,7 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
         }
 
         if (m_CurrentToken.token != tok_sc) {
-            std::cerr << "Expected function body or ';' after prototype" << std::endl;
+            m_Logger.printError("Expected a function body or a ';' after a prototype.");
             return nullptr;
         }
 
@@ -163,7 +170,7 @@ std::shared_ptr<DeclarationAST> Parser::parseDeclaration(const std::string &scop
     }
 
     if (m_CurrentToken.token != tok_sc) {
-        std::cerr << "Expected ';' after variable declaration!" << std::endl;
+        m_Logger.printError("Exepected a ';' after a declaration.");
         return nullptr;
     }
 
@@ -189,7 +196,7 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         if (m_CurrentToken.token == tok_pclose) {
             return std::make_shared<PrototypeAST>(std::move(declarationAST), std::move(args));
         } else {
-            std::cerr << "Parameters must be typed!" << std::endl;
+            m_Logger.printError("All parameters must be typed.");
             return nullptr;
         }
     }
@@ -199,7 +206,7 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
     m_CurrentToken = waitForToken();
 
     if (m_CurrentToken.token != tok_identifier) {
-        std::cerr << "Parameters must be named!" << std::endl;
+        m_Logger.printError("All parameters must be named.");
         return nullptr;
     }
 
@@ -218,7 +225,7 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         m_CurrentToken = waitForToken();
 
         if (m_CurrentToken.token != tok_type) {
-            std::cerr << "Parameters must be typed!" << std::endl;
+            m_Logger.printError("All parameters must be typed.");
             return nullptr;
         }
 
@@ -226,7 +233,7 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
         m_CurrentToken = waitForToken();
 
         if (m_CurrentToken.token != tok_identifier) {
-            std::cerr << "Parameters must be named!" << std::endl;
+            m_Logger.printError("All parameters must be named");
             return nullptr;
         }
 
@@ -247,7 +254,7 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
     }
 
     if (m_CurrentToken.token != tok_pclose) {
-        std::cerr << "A ')' is expected at the end of a prototype" << std::endl;
+        m_Logger.printError("A ')' is expected at the end of a prototype.");
         return nullptr;
     }
 
@@ -280,21 +287,19 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
         auto expr = parseExpression(proto->getName());
 
         if (!expr) {
-            std::cerr << "Expecting expression after 'return'!" << std::endl;
+            m_Logger.printError("Expression missing after the return statement");
             return nullptr;
         }
 
         if (m_CurrentToken.token != tok_sc) {
-            std::cerr << "Expected ';' at the end of the expression line: "
-                << m_Lexer->getLineCount() << std::endl;
+            m_Logger.printError("';' missing at the end of the statement");
             return nullptr;
         }
 
         m_CurrentToken = waitForToken();
 
         if (m_CurrentToken.token != tok_bclose) {
-            std::cerr << "Expected '}' at the end of the definition got: "
-                << tokToString(m_CurrentToken.token) << std::endl;
+            m_Logger.printError("Expecting '}' at the end of a function definition.");
             return nullptr;
         }
 
@@ -304,9 +309,7 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
     }
 
     if (m_CurrentToken.token != tok_bclose) {
-
-        std::cerr << "Expected '}' at the end of the definition" << std::endl;
-
+        m_Logger.printError("Expecting '}' at the end of a function definition.");
         return nullptr;
     }
 
@@ -342,7 +345,7 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
     auto it = m_NameType.find(scopedId);
 
     if (it == m_NameType.end()) {
-        std::cerr << "Variable or function called but not declared: " << scopedId << std::endl;
+        m_Logger.printError("Unknown symbol called: {}", identifier);
         return nullptr;
     }
 
@@ -372,7 +375,7 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
 
             if (m_CurrentToken.token != tok_comma) {
                 m_CurrentToken = waitForToken();
-                std::cerr << "Expected ')' or ',' in argument list" << std::endl;
+                m_Logger.printError("Expecting ')' or ',' in argument list");
                 return nullptr;
             }
 
@@ -403,7 +406,7 @@ std::shared_ptr<ExprAST> Parser::parseParensExpr(const std::string &scope) {
         return nullptr;
 
     if (m_CurrentToken.token != tok_pclose) {
-        std::cerr << "Expected ')'" << std::endl;
+        m_Logger.printError("Missing matching ')'");
     }
 
     m_CurrentToken = waitForToken();
@@ -435,8 +438,8 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr(const std::string &scope) {
         case tok_popen:
             return parseParensExpr(scope);
         default:
-            std::cerr << "Unexpected token instead of expression : " <<
-                tokToString(m_CurrentToken.token) << std::endl;
+            m_Logger.printError("Unexpected token instead of expression: {}",
+                    tokToString(m_CurrentToken.token));
             m_CurrentToken = waitForToken();
             return nullptr;
     }
@@ -482,7 +485,6 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 
     if (m_CurrentToken.token == tok_val_int) {
         if (declarationAST->getType() == "float" || declarationAST->getType() == "double") {
-            std::cerr << "Expected a float got an int, cast not implemented yet!!" << std::endl;
             return nullptr;
         }
         value = parseIntExpr();
@@ -494,7 +496,6 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 
     if (m_CurrentToken.token == tok_val_float) {
         if (declarationAST->getType() == "int") {
-            std::cerr << "Expected an int got a float, cast not implemented yet!!" << std::endl;
             return nullptr;
         }
         value = parseFloatExpr();
@@ -504,8 +505,7 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
                 value);
     }
 
-    std::cerr << "Unexpected token: " << tokToString(m_CurrentToken.token) <<
-              " when expected " << declarationAST->getType() << std::endl;
+    m_Logger.printError("Variable definition not recognized.");
 
     return nullptr;
 

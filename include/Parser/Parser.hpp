@@ -30,6 +30,8 @@ private:
 
     std::map<std::string, std::string> m_NameType;
 
+    CppLogger::CppLogger m_Logger;
+
 public:
     Parser(std::shared_ptr<Lexer> lexer);
 
