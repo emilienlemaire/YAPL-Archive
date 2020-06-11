@@ -30,7 +30,12 @@ enum token {
     tok_pclose = -15,
     tok_bopen = -16,
     tok_bclose = -17,
-    tok_comma = -18
+    tok_comma = -18,
+
+    //control flow
+    tok_if = -19,
+    tok_else = -20,
+    tok_for = -21
 };
 
 struct Token {

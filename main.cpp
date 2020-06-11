@@ -17,6 +17,6 @@ int main(int argc, char* argv[]) {
         IRGenerator generator(argv[1]);
         generator.generate();
     }
-
     return 0;
 }
+

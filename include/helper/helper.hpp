@@ -92,5 +92,11 @@ static std::string tokToString(int tok) {
             return "eol";
         case INT_MIN:
             return "IO Waiting";
+        case tok_if:
+            return "if";
+        case tok_else:
+            return "else";
+        case tok_for:
+            return "for";
     }
 }

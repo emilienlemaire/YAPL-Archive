@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "Lexer/Lexer.hpp"
+#include "utils/token.hpp"
 
 Lexer::Lexer(const char *path) {
     m_HasFile = strlen(path) != 0;
@@ -97,6 +98,18 @@ Token Lexer::getToken() {
 
         if (m_Identifier == "int") {
             return Token{ token::tok_type, m_Identifier };
+        }
+
+        if (m_Identifier == "if") {
+            return Token{ token::tok_if };
+        }
+
+        if (m_Identifier == "else") {
+            return Token{ token::tok_else };
+        }
+        
+        if (m_Identifier == "for") {
+            return Token{ token::tok_for };
         }
 
         return Token{ token::tok_identifier, m_Identifier };

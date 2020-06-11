@@ -5,3 +5,5 @@ build
 llvm-libs
 include/llvm
 include/llvm-c
+
+tags

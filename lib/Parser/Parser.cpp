@@ -511,6 +511,14 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 
 }
 
+std::shared_ptr<IfExprAST> Parser::parseIfExpr() {
+    m_CurrentToken = waitForToken();
+
+    if (m_CurrentToken.token != token::tok_popen) {
+        std::cerr << "Parentheses expected after an 'if'." << std::endl;
+    }
+}
+
 Parser::~Parser() {
 
     m_StopIOThread.set_value();

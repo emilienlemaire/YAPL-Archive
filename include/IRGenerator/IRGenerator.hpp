@@ -40,7 +40,6 @@ public:
     ~IRGenerator();
 
     void generate();
-
     llvm::Value *generateTopLevel(std::shared_ptr<ExprAST> parsedExpression);
     llvm::Value *generateBinary(std::shared_ptr<BinaryOpExprAST> parsedBinaryOpExpr);
     llvm::Value *generateFunctionCall(std::shared_ptr<CallFunctionExprAST> parsedFunctionCall);

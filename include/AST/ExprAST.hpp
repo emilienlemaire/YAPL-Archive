@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 class ExprAST {
@@ -113,3 +114,15 @@ public:
     const std::vector<std::shared_ptr<ExprAST>> &getArgs() const { return m_Args; }
 };
 
+class IfExprAST: public ExprAST {
+private:
+    std::shared_ptr<ExprAST> m_Condition, m_Then, m_Else;
+public:
+    IfExprAST(
+            std::shared_ptr<ExprAST> condition,
+            std::shared_ptr<ExprAST> then,
+            std::shared_ptr<ExprAST> t_Else)
+    : ExprAST("int"), m_Condition(std::move(condition)), m_Then(std::move(then)),
+        m_Else(std::move(t_Else))
+    {}
+};
