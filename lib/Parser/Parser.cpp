@@ -24,18 +24,18 @@ Parser::Parser(std::shared_ptr<Lexer> lexer)
         : m_Lexer(std::move(lexer)), m_Logger(CppLogger::Level::Trace, "Parser", true)
 {
 
-    std::future<void> stopIOFuture = m_StopIOThread.get_future();
+    //std::future<void> stopIOFuture = m_StopIOThread.get_future();
 
-    m_IO = std::thread([&](std::future<void> t_StopFuture){
-        Token tmp;
-        while(t_StopFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout) {
-            tmp = m_Lexer->getToken();
-            std::lock_guard lock{m_Mutex};
-            m_Tokens.push_back(tmp);
-            m_ConditionnalVariable.notify_one();
-        }
+    //m_IO = std::thread([&](std::future<void> t_StopFuture){
+        //Token tmp;
+        //while(t_StopFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout) {
+            //tmp = m_Lexer->getToken();
+            //std::lock_guard lock{m_Mutex};
+            //m_Tokens.push_back(tmp);
+            //m_ConditionnalVariable.notify_one();
+        //}
 
-    }, std::move(stopIOFuture));
+    //}, std::move(stopIOFuture));
 
     CppLogger::Format parserFormat = CppLogger::Format({
             CppLogger::FormatAttribute::Name,
@@ -43,49 +43,45 @@ Parser::Parser(std::shared_ptr<Lexer> lexer)
             });
 
     m_Logger.setFormat(parserFormat);
-
-    m_CurrentToken = getNextToken();
 }
 
 Token Parser::getNextToken(){
-    {
-        std::unique_lock lock{m_Mutex};
+    //{
+        //std::unique_lock lock{m_Mutex};
 
-        if (m_ConditionnalVariable.wait_for(lock, std::chrono::seconds(0),
-                    [&]{ return !m_Tokens.empty(); })) {
-            for (auto tok : m_Tokens) {
-                m_ToProcess.push_back(tok);
-            }
-            m_Tokens.clear();
-        }
-    }
+        //if (m_ConditionnalVariable.wait_for(lock, std::chrono::seconds(0),
+                    //[&]{ return !m_Tokens.empty(); })) {
+            //for (auto tok : m_Tokens) {
+                //m_ToProcess.push_back(tok);
+            //}
+            //m_Tokens.clear();
+        //}
+    //}
 
-    if (!m_ToProcess.empty()) {
-        Token nextTok = m_ToProcess[0];
-        m_ToProcess.pop_front();
-        return nextTok;
-    }
+    //if (!m_ToProcess.empty()) {
+        //Token nextTok = m_ToProcess[0];
+        //m_ToProcess.pop_front();
+        //return nextTok;
+    //}
 
     return Token{ INT_MIN };
 }
 
 Token Parser::waitForToken() {
 
-    Token tok = getNextToken();
-    while (tok.token == INT_MIN) {
-        tok = getNextToken();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-
-    return tok;
+    //Token tok = getNextToken();
+    //while (tok.token == INT_MIN) {
+        //tok = getNextToken();
+        //std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    //}
+    return m_Lexer->getToken();
 }
 
 void Parser::parse() {
 
     std::shared_ptr<ExprAST> parsedExpr = nullptr;
 
-    while (m_CurrentToken.token != tok_eof ||
-            (!m_Lexer->hasFile() && true)) {
+    while (m_CurrentToken.token != tok_eof) {
 
         std::cerr << "(yapl)>>>";
 
@@ -194,6 +190,7 @@ std::shared_ptr<PrototypeAST> Parser::parsePrototype(std::shared_ptr<Declaration
 
     if (m_CurrentToken.token != tok_type) {
         if (m_CurrentToken.token == tok_pclose) {
+            m_NameType[declarationAST->getName()] = declarationAST->getType();
             return std::make_shared<PrototypeAST>(std::move(declarationAST), std::move(args));
         } else {
             m_Logger.printError("All parameters must be typed.");
@@ -382,6 +379,8 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
             m_CurrentToken = waitForToken();
         }
 
+    } else {
+        m_CurrentToken = waitForToken();
     }
 
     return std::make_shared<CallFunctionExprAST>(type, identifier, std::move(args));
@@ -512,10 +511,4 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 }
 
 Parser::~Parser() {
-
-    m_StopIOThread.set_value();
-
-    if (m_IO.joinable()) {
-        m_IO.join();
-    }
 }

@@ -8,7 +8,7 @@
 
 int main(int argc, char* argv[]) {
 
-    std::cerr << "YAPL v 0.0.3" << std::endl;
+    std::cerr << "YAPL v0.0.3" << std::endl;
 
     if (argc < 2) {
         IRGenerator generator("");

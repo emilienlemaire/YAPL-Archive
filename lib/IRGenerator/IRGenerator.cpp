@@ -25,12 +25,15 @@
 #include <string>
 #include <type_traits>
 
+#include "CppLogger2/include/CppLogger.h"
+#include "CppLogger2/include/Format.h"
 #include "YAPLJIT/YAPLJIT.hpp"
 #include "IRGenerator/IRGenerator.hpp"
 #include "AST/DeclarationAST.hpp"
 
 IRGenerator::IRGenerator(const char * argv)
-    :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer)
+    :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer),
+    m_Logger(CppLogger::Level::Trace, "Generator", true)
 {
 
     llvm::InitializeNativeTarget();
@@ -42,6 +45,13 @@ IRGenerator::IRGenerator(const char * argv)
     m_YAPLJIT = std::move(YAPLJIT::Create().get());
 
     m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
+
+    m_Logger.setFormat({
+            CppLogger::FormatAttribute::Name,
+            CppLogger::FormatAttribute::Message
+            });
+
+    m_Logger.setOStream(std::cerr);
 }
 
 void IRGenerator::generate() {
@@ -54,14 +64,14 @@ void IRGenerator::generate() {
     while (!(std::dynamic_pointer_cast<EOFExprAST>(expr))) {
 
         if (auto parsedExpr = std::dynamic_pointer_cast<DeclarationAST>(expr)) {
-            fprintf(stderr, "Read declaration:\n");
+            m_Logger.printInfo("Read declaration:");
             if (auto *declaration = generateDeclaration(parsedExpr)) {
                 declaration->print(llvm::errs());
                 auto H = m_YAPLJIT->addModule(std::move(m_Module));
                 initializeModule();
             }
         } else if (expr) {
-            std::cerr << "Read top level:\n";
+            m_Logger.printInfo("Read top level:");
             auto *topLevel = generateTopLevel(std::move(expr));
             topLevel->print(llvm::errs());
             auto type = topLevel->getType()->getPointerElementType();
@@ -71,7 +81,7 @@ void IRGenerator::generate() {
                 isFloat = fType->getReturnType()->isDoubleTy();
             }
 
-            fprintf(stderr, "\n");
+            m_Logger.printTrace("");
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
             initializeModule();
 
@@ -85,10 +95,10 @@ void IRGenerator::generate() {
             if (isFloat) {
                 double (*FP)() = (double(*)())(intptr_t)exprSymbol.getAddress();
 
-                fprintf(stderr, "Evaluated to %f\n", FP());
+                m_Logger.printInfo("Evaluated to {}", FP());
             } else {
                 int (*FP)() = (int(*)())(intptr_t)exprSymbol.getAddress();
-                fprintf(stderr, "Evaluated to %d\n", FP());
+                m_Logger.printInfo("Evaluated to {}", FP());
             }
         }
 
@@ -97,6 +107,8 @@ void IRGenerator::generate() {
         }
         expr = m_Parser.parseNext();
     }
+
+    std::cout << "Exiting the loop" << std::endl;
 }
 
 /******************** ExprAST ********************************************/
@@ -111,7 +123,7 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
             double floatVal = parsedNumber->getValue().fval;
             return llvm::ConstantFP::get(m_Context, llvm::APFloat(floatVal));
         }
-        std::cerr << "Number expression not recognized" << std::endl;
+        m_Logger.printError("Number expression not recognized");
         return nullptr;
     }
 
@@ -128,7 +140,7 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
     if (auto parsedVariable = std::dynamic_pointer_cast<VariableExprAST>(parsedExpression)) {
         llvm::Value* val = m_NamedValues[parsedVariable->getIdentifier()];
         if(!val) {
-            std::cerr << "Unknown variable" << std::endl;
+            m_Logger.printError("Unknown variable: {}", parsedVariable->getIdentifier());
             return nullptr;
         }
 
@@ -160,12 +172,9 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
         return nullptr;
 
     if (L->getType()->getTypeID() != R->getType()->getTypeID()) {
-        std::cerr << "Casting ";
         if (R->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
-            std::cerr << "from int to double." << std::endl;
             R = m_Builder->CreateSIToFP(R, llvm::Type::getDoubleTy(m_Context), "casttmp");
         } else {
-            std::cerr << "from int to double." << std::endl;
             R = m_Builder->CreateFPToSI(R, llvm::Type::getInt32Ty(m_Context), "casttmp");
         }
     }
@@ -208,7 +217,7 @@ llvm::Value *IRGenerator::generateFunctionCall(
         std::shared_ptr<CallFunctionExprAST> parsedFunctionCall) {
     llvm::Function *calleeFunction = getFunction(parsedFunctionCall->getCallee());
     if (!calleeFunction) {
-        std::cerr << "Unknown function called" << std::endl;
+        m_Logger.printError("Unknown function: {}", parsedFunctionCall->getCallee());
         return nullptr;
     }
 
@@ -271,7 +280,7 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
         } else if (param->getType() == "float" || param->getType() == "double") {
             paramTypes.push_back(llvm::Type::getDoubleTy(m_Context));
         } else {
-            std::cerr << "Unknown param type: " << param->getType() << " param ignored!" << std::endl;
+            m_Logger.printError("Unknown type: {}, ignoring parameter: ", param->getType());
         }
     }
 
@@ -290,10 +299,9 @@ llvm::Function *IRGenerator::generatePrototype(std::shared_ptr<PrototypeAST> par
                 false);
 
     } else {
-        std::cerr << "Unknown function type: "<<
-            parsedPrototype->getType() <<
-            " function ignored!" <<
-            std::endl;
+        m_Logger.printError("Unknown type: {}, ignoring function \"{}\" ",
+                parsedPrototype->getType(),
+                parsedPrototype->getName());
         return nullptr;
     }
 
@@ -323,7 +331,7 @@ llvm::Function *IRGenerator::generateFunctionDefinition(std::shared_ptr<Function
     }
 
     if (!function->empty()) {
-        std::cerr << "Function cannot be redefined!" << std::endl;
+        m_Logger.printError("Function cannot be redefined: {}", name);
     }
 
     llvm::BasicBlock *basicBlock = llvm::BasicBlock::Create(m_Context, "entry", function);
@@ -374,7 +382,7 @@ llvm::Function *IRGenerator::getFunction(const std::string &name) {
         return generatePrototype(funcDef->second);
     }
 
-    std::cerr << "Function not found" << std::endl;
+    m_Logger.printError("Function not found: {}", name);
 
     return nullptr;
 }
@@ -390,9 +398,11 @@ std::unique_ptr<llvm::Module> IRGenerator::generateAndTakeOwnership(FunctionDefi
 
         return module;
     } else {
-        std::cerr << "Couldn't compile lazily JIT'd function" << std::endl;
+        m_Logger.printFatalError("Couln't compile function: '{}'. Aborting.", func->getName().str());
         return nullptr;
     }
 }
 
-IRGenerator::~IRGenerator() {}
+IRGenerator::~IRGenerator() {
+    //m_Parser.stopIOThread();
+}

@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "Lexer/Lexer.hpp"
+#include "utils/token.hpp"
 
 Lexer::Lexer(const char *path)
     :m_Logger(CppLogger::Level::Trace, "Lexer", true)
@@ -104,6 +105,10 @@ Token Lexer::getToken() {
 
         if (m_Identifier == "int") {
             return Token{ token::tok_type, m_Identifier };
+        }
+
+        if (m_Identifier == "exit" && !m_HasFile) {
+            return Token{ token::tok_eof };
         }
 
         return Token{ token::tok_identifier, m_Identifier };

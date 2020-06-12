@@ -19,12 +19,12 @@ private:
     std::shared_ptr<Lexer> m_Lexer;
     Token m_CurrentToken;
 
-    std::thread m_IO;
-    std::promise<void> m_StopIOThread;
-    std::condition_variable m_ConditionnalVariable;
-    std::mutex m_Mutex;
-    std::deque<Token> m_Tokens;
-    std::deque<Token> m_ToProcess;
+    //std::thread m_IO;
+    //std::promise<void> m_StopIOThread;
+    //std::condition_variable m_ConditionnalVariable;
+    //std::mutex m_Mutex;
+    //std::deque<Token> m_Tokens;
+    //std::deque<Token> m_ToProcess;
 
     int m_AnonFuncNum = 0;
 
@@ -60,6 +60,8 @@ public:
     std::shared_ptr<ExprAST> parseExpression(const std::string &scope = "");
 
     std::shared_ptr<ExprAST> parseBinaryExpr(int exprPrec, std::shared_ptr<ExprAST> LHS, const std::string &scope = "");
+
+    //void stopIOThread() { m_StopIOThread.set_value(); }
 };
 
 
