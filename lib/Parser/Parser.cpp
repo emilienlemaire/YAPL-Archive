@@ -345,7 +345,7 @@ std::shared_ptr<ExprAST> Parser::parseIdentifier(const std::string &scope) {
     auto it = m_NameType.find(scopedId);
 
     if (it == m_NameType.end()) {
-        m_Logger.printError("Unknown symbol called: {}", identifier);
+        m_Logger.printError("Unknown symbol called: {}", scopedId);
         return nullptr;
     }
 
