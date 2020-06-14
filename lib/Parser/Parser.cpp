@@ -91,6 +91,9 @@ void Parser::parse() {
             case tok_include:
                 parseInclude();
                 break;
+            case tok_if:
+                parseIfExpr();
+                break;
             default:
                 parseTopLevelExpr();
                 break;
@@ -107,6 +110,8 @@ std::shared_ptr<ExprAST> Parser::parseNext() {
             return parseDeclaration();
         case tok_include:
             return nullptr;
+        case tok_if:
+            return parseIfExpr();
         case tok_eof:
             return std::make_unique<EOFExprAST>();
         default:
@@ -516,6 +521,15 @@ std::shared_ptr<IfExprAST> Parser::parseIfExpr() {
 
     if (m_CurrentToken.token != token::tok_popen) {
         std::cerr << "Parentheses expected after an 'if'." << std::endl;
+        return nullptr;
+    }
+
+    m_CurrentToken = waitForToken();
+
+    auto cond = parseExpression();
+
+    if (!cond) {
+    
     }
 }
 
