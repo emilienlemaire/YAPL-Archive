@@ -31,6 +31,8 @@ private:
     std::shared_ptr<Lexer> m_Lexer;
     Parser m_Parser;
 
+    CppLogger::CppLogger m_Logger;
+
     std::map<std::string, llvm::Value *> m_NamedValues;
     std::map<std::string, std::shared_ptr<PrototypeAST>> m_FunctionDefs;
 

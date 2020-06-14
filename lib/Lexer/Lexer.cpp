@@ -9,17 +9,24 @@
 #include "Lexer/Lexer.hpp"
 #include "utils/token.hpp"
 
-Lexer::Lexer(const char *path) {
+Lexer::Lexer(const char *path)
+    :m_Logger(CppLogger::Level::Trace, "Lexer", true)
+{
     m_HasFile = strlen(path) != 0;
 
     m_File = m_HasFile ? std::fopen(path, "r") : nullptr;
 
+    CppLogger::Format lexerFormat({
+            CppLogger::FormatAttribute::Name,
+            CppLogger::FormatAttribute::Message
+            });
+
+    m_Logger.setFormat(lexerFormat);
+
     if (!m_File && m_HasFile) {
-        std::string str("Failed to open file: ");
-        str += path;
-        std::perror(str.c_str());
+        m_Logger.printFatalError("Couldn't open file: {}", path);
     } else if (m_HasFile) {
-        std::cout << "File opened successfully" << std::endl;
+        m_Logger.printInfo("File opened: {}", path);
     }
 }
 

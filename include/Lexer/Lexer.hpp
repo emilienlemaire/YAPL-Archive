@@ -11,6 +11,8 @@
 #include <string>
 
 #include "utils/token.hpp"
+#include "CppLogger2/CppLogger2.h"
+
 
 class Lexer {
 private:
@@ -21,6 +23,7 @@ private:
     int m_CurrentChar = ' ';
     int m_CharCount = 0;
     int m_LineCount = 1;
+    CppLogger::CppLogger m_Logger;
 
 public:
     Lexer(const char* path);
