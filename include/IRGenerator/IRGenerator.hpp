@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "AST/DeclarationAST.hpp"
+#include "AST/ExprAST.hpp"
 #include "Parser/Parser.hpp"
 
 class YAPLJIT;
@@ -45,6 +46,7 @@ public:
     llvm::Value *generateTopLevel(std::shared_ptr<ExprAST> parsedExpression);
     llvm::Value *generateBinary(std::shared_ptr<BinaryOpExprAST> parsedBinaryOpExpr);
     llvm::Value *generateFunctionCall(std::shared_ptr<CallFunctionExprAST> parsedFunctionCall);
+    llvm::Value *generateIfStatement(std::shared_ptr<IfExprAST> parsedIfExpr);
 
     llvm::Function *generateDeclaration(std::shared_ptr<DeclarationAST> parsedDeclaration);
     llvm::Function *generatePrototype(std::shared_ptr<PrototypeAST> parsedPrototype);

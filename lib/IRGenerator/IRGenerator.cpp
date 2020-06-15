@@ -12,6 +12,7 @@
  * */
 
 
+#include <cstddef>
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
@@ -25,11 +26,18 @@
 #include <string>
 #include <type_traits>
 
+#include "AST/ExprAST.hpp"
 #include "CppLogger2/include/CppLogger.h"
 #include "CppLogger2/include/Format.h"
 #include "YAPLJIT/YAPLJIT.hpp"
 #include "IRGenerator/IRGenerator.hpp"
-#include "AST/DeclarationAST.hpp"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Value.h"
 
 IRGenerator::IRGenerator(const char * argv)
     :m_Lexer(std::make_shared<Lexer>(argv)), m_Parser(m_Lexer),
@@ -66,14 +74,14 @@ void IRGenerator::generate() {
         if (auto parsedExpr = std::dynamic_pointer_cast<DeclarationAST>(expr)) {
             m_Logger.printInfo("Read declaration:");
             if (auto *declaration = generateDeclaration(parsedExpr)) {
-                declaration->print(llvm::errs());
+                declaration->print(llvm::errs(), nullptr, false, true);
                 auto H = m_YAPLJIT->addModule(std::move(m_Module));
                 initializeModule();
             }
         } else if (expr) {
             m_Logger.printInfo("Read top level:");
-            auto *topLevel = generateTopLevel(std::move(expr));
-            topLevel->print(llvm::errs());
+            auto *topLevel = generateTopLevel(expr);
+            topLevel->print(llvm::errs(), true);
             auto type = topLevel->getType()->getPointerElementType();
 
             bool isFloat = false;
@@ -156,6 +164,11 @@ llvm::Value *IRGenerator::generateTopLevel(std::shared_ptr<ExprAST> parsedExpres
         return call;
     }
 
+    if (auto parsedIf = std::dynamic_pointer_cast<IfExprAST>(parsedExpression)) {
+        auto ifValue = generateIfStatement(std::move(parsedIf));
+        return ifValue;
+    }
+
     return nullptr;
 }
 
@@ -173,9 +186,9 @@ llvm::Value *IRGenerator::generateBinary(std::shared_ptr<BinaryOpExprAST> parsed
 
     if (L->getType()->getTypeID() != R->getType()->getTypeID()) {
         if (R->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
-            R = m_Builder->CreateSIToFP(R, llvm::Type::getDoubleTy(m_Context), "casttmp");
+            R = m_Builder->CreateSIToFP(R, L->getType(), "casttmp");
         } else {
-            R = m_Builder->CreateFPToSI(R, llvm::Type::getInt32Ty(m_Context), "casttmp");
+            R = m_Builder->CreateFPToSI(R, L->getType(), "casttmp");
         }
     }
 
@@ -243,13 +256,84 @@ llvm::Value *IRGenerator::generateFunctionCall(
                 (callArgs[i]->getType()->getTypeID() ==
                  llvm::Type::getInt32Ty(m_Context)->getTypeID()) ?
                 callArgs[i] =
-                    m_Builder->CreateSIToFP(callArgs[i], llvm::Type::getDoubleTy(m_Context), "casttmp") :
+                    m_Builder->CreateSIToFP(callArgs[i], calleeFunction->getArg(i)->getType(), "casttmp") :
                 callArgs[i] =
-                    m_Builder->CreateFPToSI(callArgs[i], llvm::Type::getInt32Ty(m_Context), "casttmp");
+                    m_Builder->CreateFPToSI(callArgs[i], calleeFunction->getArg(i)->getType(), "casttmp");
         }
     }
 
     return m_Builder->CreateCall(calleeFunction, callArgs, "calltmp");
+}
+
+llvm::Value *IRGenerator::generateIfStatement(std::shared_ptr<IfExprAST> parsedIfExpr) {
+    llvm::Value *conditionValue = generateTopLevel(parsedIfExpr->getCondition());
+
+    if (!conditionValue) {
+        return nullptr;
+    }
+
+    if (conditionValue->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
+        conditionValue = m_Builder->CreateSIToFP(conditionValue, llvm::Type::getDoubleTy(m_Context));
+    }
+    conditionValue = m_Builder->CreateFCmpONE(
+            conditionValue,
+            llvm::ConstantFP::get(m_Context, llvm::APFloat(0.0)),
+            "ifcond");
+
+    llvm::Function *function = m_Builder->GetInsertBlock()->getParent();
+
+    llvm::BasicBlock *thenBB = llvm::BasicBlock::Create(m_Context, "then", function);
+    llvm::BasicBlock *elseBB = llvm::BasicBlock::Create(m_Context, "else");
+    llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(m_Context, "ifcont");
+
+    m_Builder->CreateCondBr(conditionValue, thenBB, elseBB);
+
+    m_Builder->SetInsertPoint(thenBB);
+
+    llvm::Value *thenValue = generateTopLevel(parsedIfExpr->getThen());
+
+    if (!thenValue) {
+        return nullptr;
+    }
+
+    m_Builder->CreateBr(mergeBB);
+
+    thenBB = m_Builder->GetInsertBlock();
+
+    function->getBasicBlockList().push_back(elseBB);
+    m_Builder->SetInsertPoint(elseBB);
+
+    llvm::Value *elseValue = generateTopLevel(parsedIfExpr->getElse());
+
+    if (!elseValue) {
+        return nullptr;
+    }
+
+
+    if (elseValue->getType()->getTypeID() != thenValue->getType()->getTypeID()) {
+        if (thenValue->getType()->getTypeID() == llvm::Type::getInt32Ty(m_Context)->getTypeID()) {
+            elseValue = m_Builder->CreateFPToSI(elseValue, thenValue->getType(), "casttmp");
+        } else {
+            elseValue = m_Builder->CreateSIToFP(elseValue, thenValue->getType(), "casttmp");
+        }
+    }
+
+    m_Builder->CreateBr(mergeBB);
+
+    elseBB = m_Builder->GetInsertBlock();
+
+    function->getBasicBlockList().push_back(mergeBB);
+    m_Builder->SetInsertPoint(mergeBB);
+
+    llvm::PHINode *phiNode = m_Builder->CreatePHI(
+            thenValue->getType(),
+            2,
+            "iftmp");
+
+    phiNode->addIncoming(thenValue, thenBB);
+    phiNode->addIncoming(elseValue, elseBB);
+
+    return phiNode;
 }
 
 /******************** DeclarationAST ********************************************/

@@ -122,7 +122,11 @@ public:
             std::shared_ptr<ExprAST> condition,
             std::shared_ptr<ExprAST> then,
             std::shared_ptr<ExprAST> t_Else)
-    : ExprAST("int"), m_Condition(std::move(condition)), m_Then(std::move(then)),
+    : ExprAST(then->getType()), m_Condition(std::move(condition)), m_Then(std::move(then)),
         m_Else(std::move(t_Else))
     {}
+
+    std::shared_ptr<ExprAST> getCondition() { return m_Condition; }
+    std::shared_ptr<ExprAST> getThen() { return m_Then; }
+    std::shared_ptr<ExprAST> getElse() { return m_Else; }
 };

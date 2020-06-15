@@ -57,7 +57,7 @@ public:
     std::shared_ptr<IntExprAST> parseIntExpr();
     std::shared_ptr<FloatExprAST> parseFloatExpr();
     std::shared_ptr<ExprAST> parseParensExpr(const std::string &scope = "");
-    std::shared_ptr<IfExprAST> parseIfExpr();
+    std::shared_ptr<IfExprAST> parseIfExpr(const std::string &scope = "");
 
     std::shared_ptr<ExprAST> parseExpression(const std::string &scope = "");
 

@@ -2,6 +2,7 @@
 // Created by Emilien Lemaire on 21/04/2020.
 //
 
+#include <cstddef>
 #include <llvm/ADT/Twine.h>
 
 #include <chrono>
@@ -13,6 +14,7 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <type_traits>
 
 #include "AST/DeclarationAST.hpp"
 #include "AST/ExprAST.hpp"
@@ -94,9 +96,6 @@ void Parser::parse() {
             case tok_include:
                 parseInclude();
                 break;
-            case tok_if:
-                parseIfExpr();
-                break;
             default:
                 parseTopLevelExpr();
                 break;
@@ -113,8 +112,6 @@ std::shared_ptr<ExprAST> Parser::parseNext() {
             return parseDeclaration();
         case tok_include:
             return nullptr;
-        case tok_if:
-            return parseIfExpr();
         case tok_eof:
             return std::make_unique<EOFExprAST>();
         default:
@@ -293,9 +290,15 @@ std::shared_ptr<FunctionDefinitionAST> Parser::parseDefinition(std::shared_ptr<P
             return nullptr;
         }
 
-        if (m_CurrentToken.token != tok_sc) {
-            m_Logger.printError("';' missing at the end of the statement");
-            return nullptr;
+        if (m_CurrentToken.token != tok_sc && m_CurrentToken.token != token::tok_bclose) {
+            if (auto ifExpr = std::dynamic_pointer_cast<IfExprAST>(expr) &&
+                    m_CurrentToken.token != token::tok_bclose) {
+                return nullptr;
+            } else {
+                m_Logger.printError("';' missing at the end of the statement. Got : {}",
+                        tokToString(m_CurrentToken.token));
+                return nullptr;
+            }
         }
 
         m_CurrentToken = waitForToken();
@@ -441,6 +444,8 @@ std::shared_ptr<ExprAST> Parser::parsePrimaryExpr(const std::string &scope) {
             return parseIntExpr();
         case tok_popen:
             return parseParensExpr(scope);
+        case tok_if:
+            return parseIfExpr(scope);
         default:
             m_Logger.printError("Unexpected token instead of expression: {}",
                     tokToString(m_CurrentToken.token));
@@ -515,22 +520,75 @@ Parser::parseVariableDefinition(std::shared_ptr<DeclarationAST> declarationAST) 
 
 }
 
-std::shared_ptr<IfExprAST> Parser::parseIfExpr() {
+std::shared_ptr<IfExprAST> Parser::parseIfExpr(const std::string &scope) {
     m_CurrentToken = waitForToken();
 
     if (m_CurrentToken.token != token::tok_popen) {
-        std::cerr << "Parentheses expected after an 'if'." << std::endl;
+        m_Logger.printError("Condition must be inside paretheses.");
         return nullptr;
     }
 
     m_CurrentToken = waitForToken();
 
-    auto cond = parseExpression();
+    auto cond = parseExpression(scope);
 
     if (!cond) {
-    
+        m_Logger.printError("Condition couldn't be parsed.");
+        return nullptr;
     }
+
+    m_CurrentToken = waitForToken();
+
+    if (m_CurrentToken.token != token::tok_bopen) {
+        m_Logger.printError("The then block must be surrounded by brackets. Current token; {}.",
+                tokToString(m_CurrentToken.token));
+        return nullptr;
+    }
+
+    m_CurrentToken = waitForToken();
+
+    auto thenBlock = parseExpression(scope);
+
+    if(!thenBlock) {
+        m_Logger.printError("Condition block couldn't be parsed.");
+        return nullptr;
+    }
+
+    if (m_CurrentToken.token != token::tok_bclose) {
+        m_Logger.printError("The then block must be surrounded by brackets. Current token; {}.",
+                tokToString(m_CurrentToken.token));
+        return nullptr;
+    }
+
+    m_CurrentToken = waitForToken();
+
+    if (m_CurrentToken.token != token::tok_else) {
+        m_Logger.printError("else statement missing;");
+        return nullptr;
+    }
+
+    m_CurrentToken = waitForToken();
+
+    if (m_CurrentToken.token != token::tok_bopen) {
+        m_Logger.printError("The else block must be surrounded by brackets.");
+        return nullptr;
+    }
+
+    m_CurrentToken = waitForToken();
+
+    auto elseBlock = parseExpression(scope);
+
+    if (!elseBlock) {
+        m_Logger.printError("Couldn't parse else block.");
+        return nullptr;
+    }
+
+    if (m_CurrentToken.token != token::tok_bclose) {
+        m_Logger.printError("The else block must be surrounded by brackets.");
+        return nullptr;
+    }
+
+    return std::make_shared<IfExprAST>(std::move(cond), std::move(thenBlock), std::move(elseBlock));
 }
 
-Parser::~Parser() {
-}
+Parser::~Parser() {}
