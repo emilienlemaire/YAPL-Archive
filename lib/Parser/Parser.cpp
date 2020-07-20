@@ -26,19 +26,6 @@ Parser::Parser(std::shared_ptr<Lexer> lexer)
         : m_Lexer(std::move(lexer)), m_Logger(CppLogger::Level::Trace, "Parser", true)
 {
 
-    //std::future<void> stopIOFuture = m_StopIOThread.get_future();
-
-    //m_IO = std::thread([&](std::future<void> t_StopFuture){
-        //Token tmp;
-        //while(t_StopFuture.wait_for(std::chrono::seconds(0)) == std::future_status::timeout) {
-            //tmp = m_Lexer->getToken();
-            //std::lock_guard lock{m_Mutex};
-            //m_Tokens.push_back(tmp);
-            //m_ConditionnalVariable.notify_one();
-        //}
-
-    //}, std::move(stopIOFuture));
-
     CppLogger::Format parserFormat = CppLogger::Format({
             CppLogger::FormatAttribute::Name,
             CppLogger::FormatAttribute::Message
@@ -47,25 +34,8 @@ Parser::Parser(std::shared_ptr<Lexer> lexer)
     m_Logger.setFormat(parserFormat);
 }
 
+[[deprecated]]
 Token Parser::getNextToken(){
-    //{
-        //std::unique_lock lock{m_Mutex};
-
-        //if (m_ConditionnalVariable.wait_for(lock, std::chrono::seconds(0),
-                    //[&]{ return !m_Tokens.empty(); })) {
-            //for (auto tok : m_Tokens) {
-                //m_ToProcess.push_back(tok);
-            //}
-            //m_Tokens.clear();
-        //}
-    //}
-
-    //if (!m_ToProcess.empty()) {
-        //Token nextTok = m_ToProcess[0];
-        //m_ToProcess.pop_front();
-        //return nextTok;
-    //}
-
     return Token{ INT_MIN };
 }
 

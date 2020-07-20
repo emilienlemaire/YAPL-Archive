@@ -118,7 +118,10 @@ Token Lexer::getToken() {
         if (m_Identifier == "for") {
             return Token{ token::tok_for };
         }
-
+        
+        if (m_Identifier == "exit") {
+            return Token{ token::tok_eof };
+        }
         return Token{ token::tok_identifier, m_Identifier };
     }
 
