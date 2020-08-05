@@ -14,6 +14,7 @@
 
 #include "IRGenerator/IRGenerator.hpp"
 
+#include <cstdlib>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Type.h>
 #include <llvm/Support/raw_ostream.h>
@@ -35,7 +36,15 @@ IRGenerator::IRGenerator(const char * argv)
 
     m_Module = std::make_unique<llvm::Module>("test", m_Context);
     m_Builder = std::make_unique<llvm::IRBuilder<>>(m_Context);
-    m_YAPLJIT = std::move(YAPLJIT::Create().get());
+
+    if(auto JitOrErr = YAPLJIT::Create()) {
+        m_YAPLJIT = std::move(JitOrErr.get());
+    } else {
+        auto err = JitOrErr.takeError();
+        std::cerr << "Failed to create JIT" << std::endl;
+
+        exit(EXIT_FAILURE);
+    }
 
     m_Module->setDataLayout(m_YAPLJIT->getDataLayout());
 
@@ -55,8 +64,11 @@ void IRGenerator::generate() {
             fprintf(stderr, "Read declaration:\n");
             if (auto *declaration = generateDeclaration(std::move(parsedExpr))) {
                 declaration->print(llvm::errs());
-                m_YAPLJIT->addModule(std::move(m_Module));
-                reloadModuleAndPassManger();
+                if (auto errOrModule = m_YAPLJIT->addModule(std::move(m_Module))){
+                    reloadModuleAndPassManger();
+                } else {
+                    std::cout << "Error while adding the module" << std::endl;
+                }
             }
         } else if (expr) {
             std::cerr << "Read top level:\n";
@@ -73,7 +85,13 @@ void IRGenerator::generate() {
             auto H = m_YAPLJIT->addModule(std::move(m_Module));
             reloadModuleAndPassManger();
 
-            auto exprSymbol = m_YAPLJIT->lookup(std::to_string(m_Parser.getAnonFuncNum())).get();
+            auto errOrSymbol = m_YAPLJIT->lookup(std::to_string(m_Parser.getAnonFuncNum()));
+
+            if (!errOrSymbol) {
+                auto err = errOrSymbol.takeError();
+            }
+
+            auto exprSymbol = errOrSymbol.get();
 
             assert(exprSymbol && "Function not found");
             if (isFloat) {
