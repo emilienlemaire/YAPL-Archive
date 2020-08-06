@@ -20,6 +20,8 @@ set(CMAKE_BUILD_TYPE Debug)
 
 if(APPLE)
     set(LLVM_DIR ${CMAKE_SOURCE_DIR}/llvm-libs/cmake/llvm)
+else()
+    set(LLVM_DIR /usr/local/lib64/cmake/llvm)
 endif()
 
 find_package(LLVM REQUIRED CONFIG)
