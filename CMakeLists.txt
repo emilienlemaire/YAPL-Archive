@@ -13,15 +13,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Debug)
+
 if(APPLE)
     set(LLVM_DIR ${CMAKE_SOURCE_DIR}/llvm-libs/cmake/llvm)
-endif(APPLE)
+endif()
 
 find_package(LLVM REQUIRED CONFIG)
 
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmaike in: ${LLVM_DIR}")
+
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/include)
-include_directories(${CMAKE_SOURCE_DIR}/vendor)
+include_directories(vendor)
 
 add_definitions(${LLVM_DEFINITIONS})
 
