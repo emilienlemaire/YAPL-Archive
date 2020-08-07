@@ -9,3 +9,5 @@ bool FunctionPass::runOnFunction(llvm::Function &function) {
     llvm::errs().write_escaped(function.getName()) << "\n";
     return false;
 }
+
+static llvm::RegisterPass<FunctionPass> X("function", "My Custom Function Pass", false, false);

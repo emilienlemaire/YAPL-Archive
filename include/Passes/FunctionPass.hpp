@@ -11,4 +11,3 @@ struct FunctionPass : public llvm::FunctionPass {
     virtual bool runOnFunction(llvm::Function &function) override;
 };
 
-static llvm::RegisterPass<FunctionPass> X("function", "My Custom Function Pass", false, false);
